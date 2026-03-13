@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book Appointment – ELYSIUM</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<!-- Header -->
+<header class="site-header">
+  <div class="logo">
+    <a href="index.html"><img src="images/logo.png" alt="ELYSIUM Logo"></a>
+  </div>
+  <nav class="site-nav">
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="services.html">Services</a></li>
+      <li><a href="gallery.html">Gallery</a></li>
+      <li><a href="products.html">Shop</a></li>
+      <li><a href="booking.html" class="active">Book</a></li>
+      <li><a href="contact.html">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<!-- Page Hero -->
+<section class="hero-small">
+  <h1>Book Your Appointment</h1>
+  <p>Cutting Edges, Day & Night</p>
+</section>
+
+<!-- SOL – Men Booking -->
+<section class="booking-section">
+  <div class="service-card sol">
+    <h1>Sol - Men's Barbershop</h1>
+    <p>Choose your service, barber, date, and time below:</p>
+  </div>
+
+  <form id="bookingForm">
+    <!-- Service Selection -->
+    <label for="service">Choose Service</label>
+    <select id="service" required>
+      <option value="">Select a service</option>
+      <option value="mens-haircut">Men’s Regular Haircut - 5 990 HUF</option>
+      <option value="student-haircut">Student Haircut - 4 990 HUF</option>
+      <option value="kids-haircut">Kids Haircut - 4 990 HUF</option>
+      <option value="beard-trim">Beard Trim - 2 990 HUF</option>
+      <option value="student-beard-trim">Student Beard Trim - 2 490 HUF</option>
+      <option value="hair-beard">Hair + Beard - 7 990 HUF</option>
+      <option value="student-hair-beard">Student Hair + Beard - 6 990 HUF</option>
+      <option value="hair-beard-color">Haircut + Beard Trim + Color - 11 990 HUF</option>
+      <option value="student-hair-beard-color">Student Haircut + Beard Trim + Color - 10 500 HUF</option>
+    </select>
+
+    <!-- Barber Selection -->
+    <label for="barber">Choose Barber</label>
+    <div class="barber-select-wrapper">
+      <select id="barber" required>
+        <option value="">Select a barber</option>
+        <option value="alex">Alex</option>
+        <option value="marco">Marco</option>
+        <option value="david">David</option>
+        <option value="leo">Leo</option>
+        <option value="sophia">Sophia</option>
+        <option value="emma">Emma</option>
+      </select>
+      <div class="barber-photo">
+        <img id="barberImage" src="images/default-barber.png" alt="Barber Photo">
+      </div>
+    </div>
+
+    <!-- Date and Time -->
+    <label for="date">Select Date</label>
+    <input type="date" id="date" required>
+
+    <label for="time">Select Time</label>
+    <select id="time" required></select>
+
+    <!-- Customer Info -->
+    <label for="name">Your Name</label>
+    <input type="text" id="name" placeholder="John Doe" required>
+
+    <label for="email">Your Email</label>
+    <input type="email" id="email" placeholder="example@email.com" required>
+
+    <button type="submit" class="cta-btn">Book Appointment</button>
+  </form>
+
+  <div id="confirmationMessage"></div>
+</section>
+
+<!-- VIP Section -->
+<section class="vip-section">
+  <h2>Elysium VIP Grooming</h2>
+  <p class="vip-intro">Experience ultimate luxury with our premium grooming package:</p>
+  <div class="vip-card">
+    <div class="vip-item"><i class="fa-solid fa-scissors vip-icon"></i> Haircut</div>
+    <div class="vip-item"><i class="fa-solid fa-beard vip-icon"></i> Beard Styling</div>
+    <div class="vip-item"><i class="fa-solid fa-paint-roller vip-icon"></i> Hair Coloring</div>
+    <div class="vip-item"><i class="fa-solid fa-magic-wand-sparkles vip-icon"></i> Threading</div>
+    <div class="vip-item"><i class="fa-solid fa-face-mask vip-icon"></i> Hair & Face Masks</div>
+    <div class="vip-item"><i class="fa-solid fa-droplet vip-icon"></i> Wax & Steam Facial Cleansing</div>
+    <div class="vip-item free-drink"><i class="fa-solid fa-cup-hot vip-icon"></i> Free Soft Drink</div>
+  </div>
+  <div class="vip-price">Regular Price: 14 990 HUF | Student Price: 13 490 HUF</div>
+  <button id="vipBookBtn" class="cta-btn">Book VIP</button>
+</section>
+
+<!-- VIP Modal -->
+<div id="vipModal" class="vip-modal" style="display:none;">
+  <div class="vip-modal-content">
+    <span class="vip-close">&times;</span>
+    <h2>Book Elysium VIP Grooming</h2>
+    <form id="vipForm">
+      <label for="vipName">Your Name</label>
+      <input type="text" id="vipName" placeholder="John Doe" required>
+
+      <label for="vipEmail">Your Email</label>
+      <input type="email" id="vipEmail" placeholder="example@email.com" required>
+
+      <label for="vipDate">Select Date</label>
+      <input type="date" id="vipDate" required>
+
+      <label for="vipTime">Select Time</label>
+      <select id="vipTime" required></select>
+
+      <button type="submit" class="cta-btn">Book Now</button>
+    </form>
+    <div id="vipConfirmation"></div>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 ELYSIUM – Sol & Luna</p>
+  <p>Open Daily 10:00 AM — 10:00 PM</p>
+</footer>
+
+<script>
+// --- Setup ---
+const todayStr = new Date().toISOString().split('T')[0];
+document.getElementById('date').setAttribute('min', todayStr);
+document.getElementById('vipDate').setAttribute('min', todayStr);
+
+function generateTimeSlots(selectId, startHour = 10, endHour = 22, intervalMinutes = 30) {
+  const select = document.getElementById(selectId);
+  select.innerHTML = '';
+  let hour = startHour;
+  let minute = 0;
+  while(hour < endHour || (hour === endHour && minute === 0)) {
+    const hh = hour.toString().padStart(2,'0');
+    const mm = minute.toString().padStart(2,'0');
+    const option = document.createElement('option');
+    option.value = `${hh}:${mm}`;
+    option.textContent = `${hh}:${mm}`;
+    select.appendChild(option);
+    minute += intervalMinutes;
+    if(minute>=60){minute=0; hour++;}
+  }
+}
+
+generateTimeSlots('time');
+generateTimeSlots('vipTime');
+
+// Barber photo
+const barberSelect = document.getElementById('barber');
+const barberImage = document.getElementById('barberImage');
+const barberPhotos = { alex:'images/barbers/alex.jpg', marco:'images/barbers/marco.jpg', david:'images/barbers/david.jpg', leo:'images/barbers/leo.jpg', sophia:'images/barbers/sophia.jpg', emma:'images/barbers/emma.jpg' };
+barberSelect.addEventListener('change', () => {
+  const selected = barberSelect.value;
+  barberImage.src = barberPhotos[selected] || 'images/default-barber.png';
+  barberImage.alt = selected ? `Photo of ${selected}` : 'Barber Photo';
+});
+
+// --- Disable already booked times ---
+const regularTimeSelect = document.getElementById('time');
+const vipTimeSelect = document.getElementById('vipTime');
+const regularDate = document.getElementById('date');
+const vipDate = document.getElementById('vipDate');
+
+async function updateAvailableTimes() {
+  const barber = barberSelect.value;
+  const date = regularDate.value;
+  const vipDateVal = vipDate.value;
+
+  // Fetch all bookings
+  const [regularRes, vipRes] = await Promise.all([
+    fetch('http://localhost:3000/bookings'),
+    fetch('http://localhost:3000/vipBookings')
+  ]);
+  const [regularBookings, vipBookings] = await Promise.all([regularRes.json(), vipRes.json()]);
+
+  // Helper: disable times in a select based on bookings
+  function disableTimes(selectElem, bookingsArray, selectedBarber, selectedDate) {
+    Array.from(selectElem.options).forEach(opt => opt.disabled = false);
+    bookingsArray.forEach(b => {
+      if((b.barber === selectedBarber || !b.barber) && b.date === selectedDate) {
+        const option = Array.from(selectElem.options).find(o => o.value === b.time);
+        if(option) option.disabled = true;
+      }
+    });
+  }
+
+  // Regular booking times
+  if(barber && date) disableTimes(regularTimeSelect, regularBookings.concat(vipBookings), barber, date);
+  // VIP booking times
+  if(vipDateVal) disableTimes(vipTimeSelect, regularBookings.concat(vipBookings), null, vipDateVal);
+}
+
+barberSelect.addEventListener('change', updateAvailableTimes);
+regularDate.addEventListener('change', updateAvailableTimes);
+vipDate.addEventListener('change', updateAvailableTimes);
+updateAvailableTimes();
+
+// --- Submit Forms ---
+document.getElementById('bookingForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = {
+    service: document.getElementById('service').value,
+    barber: barberSelect.value,
+    date: regularDate.value,
+    time: regularTimeSelect.value,
+    name: document.getElementById('name').value,
+    email: document.getElementById('email').value
+  };
+  const res = await fetch('http://localhost:3000/book', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+  const result = await res.json();
+  alert(result.message);
+  bookingForm.reset();
+  barberImage.src = 'images/default-barber.png';
+  updateAvailableTimes();
+});
+
+document.getElementById('vipForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = {
+    name: document.getElementById('vipName').value,
+    email: document.getElementById('vipEmail').value,
+    date: vipDate.value,
+    time: vipTimeSelect.value
+  };
+  const res = await fetch('http://localhost:3000/vip', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+  const result = await res.json();
+  vipConfirmation.innerHTML = `<p>${result.message}</p>`;
+  vipForm.reset();
+  updateAvailableTimes();
+});
+
+// VIP modal
+const vipBtn = document.getElementById('vipBookBtn');
+const vipModal = document.getElementById('vipModal');
+const vipClose = document.querySelector('.vip-close');
+vipBtn.addEventListener('click', () => vipModal.style.display='block');
+vipClose.addEventListener('click', () => vipModal.style.display='none');
+window.addEventListener('click', e=> {if(e.target===vipModal) vipModal.style.display='none';});
+
+</script>
+</body>
+</html>
