@@ -1,5 +1,7 @@
+const BACKEND_URL = "https://elysiumsolluna.onrender.com"; // <--- your live backend
+
 const regularForm = document.getElementById('bookingForm');
-const vipForm = document.getElementById('vipForm'); // Make sure your VIP form has id="vipForm"
+const vipForm = document.getElementById('vipForm'); // VIP form
 const dateInputs = document.querySelectorAll('input[type="date"]');
 const timeInputs = document.querySelectorAll('input[type="time"]');
 
@@ -37,8 +39,8 @@ function handleBookingSubmit(form, endpoint) {
     const data = {};
     requiredFields.forEach(f => data[f.name] = f.value);
 
-    // Send to backend
-    fetch(endpoint, {
+    // Send to backend (live URL)
+    fetch(`${BACKEND_URL}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
