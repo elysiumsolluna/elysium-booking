@@ -34,8 +34,7 @@ if (!GOOGLE_CREDS || !EMAIL_USER || !EMAIL_PASS || !SHEET_ID) {
   console.error("Missing environment variables. Check GOOGLE_CREDS reconstruction and email credentials.");
   process.exit(1);
 }
-const creds = JSON.parse(GOOGLE_CREDS);
-
+const creds = GOOGLE_CREDS;
 const app = express();
 
 // Nodemailer
