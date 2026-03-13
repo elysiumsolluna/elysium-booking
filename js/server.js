@@ -6,7 +6,7 @@ const path = require('path');
 const nodemailer = require('nodemailer');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const cron = require('node-cron');
-const creds = require('./credentials.json'); // your service account file
+const creds = JSON.parse(process.env.GOOGLE_CREDS);
 
 const app = express();
 const PORT = 3000;
