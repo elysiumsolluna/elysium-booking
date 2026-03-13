@@ -1,15 +1,16 @@
 {
   "name": "elysiumwebsite",
   "version": "1.0.0",
-  "description": "",
+  "description": "Elysium website project",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
