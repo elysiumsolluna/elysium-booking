@@ -22,5 +22,13 @@
     "time": "18:30",
     "name": "Abdalrahim",
     "email": "abboudabutoyour@gmail.com"
+  },
+  {
+    "name": "John Doe",
+    "email": "elysiumsolluna@gmail.com",
+    "service": "mens-haircut",
+    "barber": "Alex",
+    "date": "2026-03-13",
+    "time": "12:00"
   }
 ]
