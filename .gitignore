@@ -1,2 +1,13 @@
-js/credentials.json"js/credentials.json" 
-"js/credentials.json" 
+# Node modules
+node_modules/
+
+# Logs
+*.log
+
+# Environment & secrets
+.env
+js/credentials.json
+
+# Backup or temporary files
+*.bak
+*.tmp
