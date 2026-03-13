@@ -10,4 +10,4 @@ js/credentials.json
 
 # Backup or temporary files
 *.bak
-*.tmp
+*.tmp"node_modules/" 
