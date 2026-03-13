@@ -11,16 +11,14 @@ const cron = require('node-cron');
 
 // ---------- CONFIG ----------
 
-// Use environment variables for all secrets
-const PORT = process.env.PORT || 3000;
-const GOOGLE_CREDS = process.env.GOOGLE_CREDS; // JSON string
+const PORT = process.env.PORT || 3000; // Render dynamic port
+const GOOGLE_CREDS = process.env.GOOGLE_CREDS; // JSON string from Render env
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
-const SHEET_ID = process.env.SHEET_ID || '1Od160ft9-Q6X0bPmn-WScFZH1dZ5JzlI75k8PUhMDTk';
+const SHEET_ID = process.env.SHEET_ID;
 
-// Validate environment variables
-if (!GOOGLE_CREDS || !EMAIL_USER || !EMAIL_PASS) {
-  console.error("Missing environment variables. Please set GOOGLE_CREDS, EMAIL_USER, and EMAIL_PASS.");
+if (!GOOGLE_CREDS || !EMAIL_USER || !EMAIL_PASS || !SHEET_ID) {
+  console.error("Missing environment variables. Set GOOGLE_CREDS, EMAIL_USER, EMAIL_PASS, and SHEET_ID.");
   process.exit(1);
 }
 
@@ -28,26 +26,27 @@ const creds = JSON.parse(GOOGLE_CREDS);
 
 const app = express();
 
-// Nodemailer transporter
+// Nodemailer
 const transporter = nodemailer.createTransport({
   service: 'gmail',
-  auth: { user: EMAIL_USER, pass: EMAIL_PASS }
+  auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+  secure: false
 });
 
-// Serve static files from root
-app.use(express.static(path.join(__dirname, '../')));
+// Serve static files from project root
+app.use(express.static(path.join(__dirname, '..')));
 app.use(cors());
 app.use(bodyParser.json());
 
-// Backup JSON files
+// JSON backups
 const bookingsFile = path.join(__dirname, 'bookings.json');
 const vipFile = path.join(__dirname, 'vipBookings.json');
 
-// Initialize if missing
+// Create JSON files if missing
 if (!fs.existsSync(bookingsFile)) fs.writeFileSync(bookingsFile, JSON.stringify([]));
 if (!fs.existsSync(vipFile)) fs.writeFileSync(vipFile, JSON.stringify([]));
 
-// ---------- HELPER: Google Sheet ----------
+// ---------- Google Sheet Helper ----------
 async function saveToSheet(booking, isVIP = false) {
   const doc = new GoogleSpreadsheet(SHEET_ID);
   await doc.useServiceAccountAuth(creds);
@@ -58,17 +57,20 @@ async function saveToSheet(booking, isVIP = false) {
   await sheet.addRow(booking);
 }
 
-// ---------- API: GET ----------
+// ---------- API ----------
+
+// GET bookings
 app.get('/bookings', (req, res) => {
   const bookings = JSON.parse(fs.readFileSync(bookingsFile));
   res.json(bookings);
 });
+
 app.get('/vipBookings', (req, res) => {
   const vipBookings = JSON.parse(fs.readFileSync(vipFile));
   res.json(vipBookings);
 });
 
-// ---------- API: POST ----------
+// POST regular booking
 app.post('/book', async (req, res) => {
   try {
     const bookings = JSON.parse(fs.readFileSync(bookingsFile));
@@ -111,6 +113,7 @@ app.post('/book', async (req, res) => {
   }
 });
 
+// POST VIP booking
 app.post('/vip', async (req, res) => {
   try {
     const vipBookings = JSON.parse(fs.readFileSync(vipFile));
@@ -142,13 +145,14 @@ app.post('/vip', async (req, res) => {
     });
 
     res.json({ message: 'VIP booking saved and email sent!' });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'VIP booking failed.' });
   }
 });
 
-// ---------- Admin dashboard ----------
+// ---------- Admin Dashboard ----------
 app.get('/admin', (req, res) => {
   const bookings = JSON.parse(fs.readFileSync(bookingsFile));
   const vipBookings = JSON.parse(fs.readFileSync(vipFile));
@@ -178,7 +182,7 @@ function checkReminders() {
 
 cron.schedule('*/10 * * * *', checkReminders);
 
-// ---------- START SERVER ----------
+// ---------- Start Server ----------
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
