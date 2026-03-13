@@ -20,7 +20,7 @@ const GOOGLE_CREDS = {
   type: process.env.GOOGLE_TYPE,
   project_id: process.env.GOOGLE_PROJECT_ID,
   private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-  private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'), // important
+  private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
   client_email: process.env.GOOGLE_CLIENT_EMAIL,
   client_id: process.env.GOOGLE_CLIENT_ID,
   auth_uri: process.env.GOOGLE_AUTH_URI,
@@ -30,18 +30,19 @@ const GOOGLE_CREDS = {
 };
 
 // Validate environment variables
-if (!GOOGLE_CREDS || !EMAIL_USER || !EMAIL_PASS || !SHEET_ID) {
-  console.error("Missing environment variables. Check GOOGLE_CREDS reconstruction and email credentials.");
+if (!GOOGLE_CREDS.private_key || !EMAIL_USER || !EMAIL_PASS || !SHEET_ID) {
+  console.error("Missing environment variables. Check GOOGLE_CREDS and email credentials.");
   process.exit(1);
 }
+
 const creds = GOOGLE_CREDS;
+
 const app = express();
 
 // Nodemailer
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: { user: EMAIL_USER, pass: EMAIL_PASS },
-  secure: false
 });
 
 // Serve static files from project root
@@ -59,13 +60,17 @@ if (!fs.existsSync(vipFile)) fs.writeFileSync(vipFile, JSON.stringify([]));
 
 // ---------- Google Sheet Helper ----------
 async function saveToSheet(booking, isVIP = false) {
-  const doc = new GoogleSpreadsheet(SHEET_ID);
-  await doc.useServiceAccountAuth(creds);
-  await doc.loadInfo();
-  const sheetTitle = isVIP ? 'VIP Bookings' : 'Regular Bookings';
-  const sheet = doc.sheetsByTitle[sheetTitle];
-  if (!sheet) throw new Error(`Sheet "${sheetTitle}" not found!`);
-  await sheet.addRow(booking);
+  try {
+    const doc = new GoogleSpreadsheet(SHEET_ID);
+    await doc.useServiceAccountAuth(creds);
+    await doc.loadInfo();
+    const sheetTitle = isVIP ? 'VIP Bookings' : 'Regular Bookings';
+    const sheet = doc.sheetsByTitle[sheetTitle];
+    if (!sheet) throw new Error(`Sheet "${sheetTitle}" not found!`);
+    await sheet.addRow(booking);
+  } catch (err) {
+    console.error("Failed to save to Google Sheet:", err);
+  }
 }
 
 // ---------- API ----------
@@ -102,19 +107,23 @@ app.post('/book', async (req, res) => {
       Time: req.body.time
     });
 
-    await transporter.sendMail({
-      from: EMAIL_USER,
-      to: req.body.email,
-      subject: 'Booking Confirmation – ELYSIUM',
-      html: `<h2>Dear ${req.body.name}</h2>
-             <p>Your appointment is confirmed:</p>
-             <ul>
-               <li><b>Service:</b> ${req.body.service}</li>
-               <li><b>Barber:</b> ${req.body.barber}</li>
-               <li><b>Date:</b> ${req.body.date}</li>
-               <li><b>Time:</b> ${req.body.time}</li>
-             </ul>`
-    });
+    try {
+      await transporter.sendMail({
+        from: EMAIL_USER,
+        to: req.body.email,
+        subject: 'Booking Confirmation – ELYSIUM',
+        html: `<h2>Dear ${req.body.name}</h2>
+               <p>Your appointment is confirmed:</p>
+               <ul>
+                 <li><b>Service:</b> ${req.body.service}</li>
+                 <li><b>Barber:</b> ${req.body.barber}</li>
+                 <li><b>Date:</b> ${req.body.date}</li>
+                 <li><b>Time:</b> ${req.body.time}</li>
+               </ul>`
+      });
+    } catch (err) {
+      console.error("Failed to send confirmation email:", err);
+    }
 
     res.json({ message: 'Booking saved and email sent!' });
 
@@ -143,17 +152,21 @@ app.post('/vip', async (req, res) => {
       Time: req.body.time
     }, true);
 
-    await transporter.sendMail({
-      from: EMAIL_USER,
-      to: req.body.email,
-      subject: 'VIP Booking Confirmation – ELYSIUM',
-      html: `<h2>Dear ${req.body.name}</h2>
-             <p>Your VIP appointment is confirmed:</p>
-             <ul>
-               <li><b>Date:</b> ${req.body.date}</li>
-               <li><b>Time:</b> ${req.body.time}</li>
-             </ul>`
-    });
+    try {
+      await transporter.sendMail({
+        from: EMAIL_USER,
+        to: req.body.email,
+        subject: 'VIP Booking Confirmation – ELYSIUM',
+        html: `<h2>Dear ${req.body.name}</h2>
+               <p>Your VIP appointment is confirmed:</p>
+               <ul>
+                 <li><b>Date:</b> ${req.body.date}</li>
+                 <li><b>Time:</b> ${req.body.time}</li>
+               </ul>`
+      });
+    } catch (err) {
+      console.error("Failed to send VIP email:", err);
+    }
 
     res.json({ message: 'VIP booking saved and email sent!' });
 
@@ -192,6 +205,14 @@ function checkReminders() {
 }
 
 cron.schedule('*/10 * * * *', checkReminders);
+
+// ---------- Global error handling ----------
+process.on('unhandledRejection', (reason, p) => {
+  console.error('Unhandled Rejection at Promise:', p, 'reason:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
 
 // ---------- Start Server ----------
 app.listen(PORT, () => {
