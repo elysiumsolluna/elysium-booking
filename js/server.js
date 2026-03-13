@@ -1,5 +1,6 @@
 // js/server.js
 
+// ---------- IMPORTS ----------
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -11,11 +12,11 @@ const cron = require('node-cron');
 
 // ---------- CONFIG ----------
 const PORT = process.env.PORT || 3000;
-const EMAIL_USER = process.env.GMAIL_USER;
-const EMAIL_PASS = process.env.GMAIL_PASS;
-const SHEET_ID = process.env.SHEET_ID;
+const EMAIL_USER = process.env.GMAIL_USER; // Gmail address
+const EMAIL_PASS = process.env.GMAIL_PASS; // Gmail App Password
+const SHEET_ID = process.env.SHEET_ID; // Google Sheet ID
 
-// GOOGLE CREDS reconstruction
+// GOOGLE SERVICE ACCOUNT CREDS
 const GOOGLE_CREDS = {
   type: process.env.GOOGLE_TYPE,
   project_id: process.env.GOOGLE_PROJECT_ID,
@@ -31,57 +32,35 @@ const GOOGLE_CREDS = {
   client_x509_cert_url: process.env.GOOGLE_CLIENT_CERT_URL,
 };
 
-// ---------- DEBUG LOG ----------
-console.log("===== STARTUP ENV CHECK =====");
-console.log("PORT:", PORT);
-console.log("GMAIL_USER:", EMAIL_USER ? "SET" : "MISSING");
-console.log("GMAIL_PASS:", EMAIL_PASS ? "SET" : "MISSING");
-console.log("SHEET_ID:", SHEET_ID ? "SET" : "MISSING");
-console.log("GOOGLE_PRIVATE_KEY:", GOOGLE_CREDS.private_key ? "SET" : "MISSING");
-console.log("GOOGLE_CLIENT_EMAIL:", GOOGLE_CREDS.client_email ? "SET" : "MISSING");
-console.log("=============================");
-
-// ---------- VALIDATE ----------
-let missingVars = [];
-if (!EMAIL_USER) missingVars.push("GMAIL_USER");
-if (!EMAIL_PASS) missingVars.push("GMAIL_PASS");
-if (!SHEET_ID) missingVars.push("SHEET_ID");
-if (!GOOGLE_CREDS.private_key) missingVars.push("GOOGLE_PRIVATE_KEY");
-if (!GOOGLE_CREDS.client_email) missingVars.push("GOOGLE_CLIENT_EMAIL");
-
-if (missingVars.length > 0) {
-  console.error("Missing required environment variables:", missingVars.join(", "));
-  console.error("Deployment will not start until these are set.");
-  process.exit(1);
-}
-
-const creds = GOOGLE_CREDS;
-
 // ---------- EXPRESS APP ----------
 const app = express();
 
+// ---------- CORS ----------
+app.use(cors({
+  origin: 'https://elysiumsolluna.onrender.com', // your frontend live URL
+}));
+
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, '..'))); // serve static files
+
+// ---------- EMAIL TRANSPORT ----------
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: { user: EMAIL_USER, pass: EMAIL_PASS },
 });
 
-// Serve static files
-app.use(express.static(path.join(__dirname, '..')));
-app.use(cors());
-app.use(bodyParser.json());
-
-// JSON backup files
+// ---------- JSON BACKUP FILES ----------
 const bookingsFile = path.join(__dirname, 'bookings.json');
 const vipFile = path.join(__dirname, 'vipBookings.json');
 
 if (!fs.existsSync(bookingsFile)) fs.writeFileSync(bookingsFile, JSON.stringify([]));
 if (!fs.existsSync(vipFile)) fs.writeFileSync(vipFile, JSON.stringify([]));
 
-// ---------- HELPER: Google Sheet ----------
+// ---------- HELPER: GOOGLE SHEET ----------
 async function saveToSheet(booking, isVIP = false) {
   try {
     const doc = new GoogleSpreadsheet(SHEET_ID);
-    await doc.useServiceAccountAuth(creds);
+    await doc.useServiceAccountAuth(GOOGLE_CREDS);
     await doc.loadInfo();
     const sheetTitle = isVIP ? 'VIP Bookings' : 'Regular Bookings';
     const sheet = doc.sheetsByTitle[sheetTitle];
@@ -92,21 +71,39 @@ async function saveToSheet(booking, isVIP = false) {
   }
 }
 
-// ---------- API ----------
-// GET bookings
+// ---------- TEST EMAIL ----------
+app.get('/test-email', async (req, res) => {
+  try {
+    await transporter.sendMail({
+      from: EMAIL_USER,
+      to: EMAIL_USER, // send to yourself
+      subject: 'Test Email from ELYSIUM',
+      text: 'This is a test email to confirm SMTP is working!'
+    });
+    res.send("Test email sent! Check your inbox.");
+  } catch (err) {
+    console.error("Test email failed:", err.message);
+    res.status(500).send("Test email failed: " + err.message);
+  }
+});
+
+// ---------- API: GET BOOKINGS ----------
 app.get('/bookings', (req, res) => {
   const bookings = JSON.parse(fs.readFileSync(bookingsFile));
   res.json(bookings);
 });
+
 app.get('/vipBookings', (req, res) => {
   const vipBookings = JSON.parse(fs.readFileSync(vipFile));
   res.json(vipBookings);
 });
 
-// POST regular booking
+// ---------- API: POST BOOKING ----------
 app.post('/book', async (req, res) => {
   try {
     const bookings = JSON.parse(fs.readFileSync(bookingsFile));
+
+    // check conflicts
     const conflict = bookings.find(b =>
       b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time
     );
@@ -124,39 +121,37 @@ app.post('/book', async (req, res) => {
       Time: req.body.time
     });
 
-    try {
-      await transporter.sendMail({
-        from: EMAIL_USER,
-        to: req.body.email,
-        subject: 'Booking Confirmation – ELYSIUM',
-        html: `<h2>Dear ${req.body.name}</h2>
-               <p>Your appointment is confirmed:</p>
-               <ul>
-                 <li><b>Service:</b> ${req.body.service}</li>
-                 <li><b>Barber:</b> ${req.body.barber}</li>
-                 <li><b>Date:</b> ${req.body.date}</li>
-                 <li><b>Time:</b> ${req.body.time}</li>
-               </ul>`
-      });
-    } catch (err) {
-      console.error("Email send failed:", err.message);
-    }
+    await transporter.sendMail({
+      from: EMAIL_USER,
+      to: req.body.email,
+      subject: 'Booking Confirmation – ELYSIUM',
+      html: `<h2>Dear ${req.body.name}</h2>
+             <p>Your appointment is confirmed:</p>
+             <ul>
+               <li><b>Service:</b> ${req.body.service}</li>
+               <li><b>Barber:</b> ${req.body.barber}</li>
+               <li><b>Date:</b> ${req.body.date}</li>
+               <li><b>Time:</b> ${req.body.time}</li>
+             </ul>`
+    });
 
     res.json({ message: "Booking saved and email sent!" });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Booking failed." });
   }
 });
 
-// POST VIP booking
+// ---------- API: POST VIP BOOKING ----------
 app.post('/vip', async (req, res) => {
   try {
     const vipBookings = JSON.parse(fs.readFileSync(vipFile));
+
     const conflict = vipBookings.find(b =>
       b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time
     );
-    if (conflict) return res.status(400).json({ message: "Barber already booked." });
+    if (conflict) return res.status(400).json({ message: "VIP slot already booked." });
 
     vipBookings.push(req.body);
     fs.writeFileSync(vipFile, JSON.stringify(vipBookings, null, 2));
@@ -168,30 +163,27 @@ app.post('/vip', async (req, res) => {
       Time: req.body.time
     }, true);
 
-    try {
-      await transporter.sendMail({
-        from: EMAIL_USER,
-        to: req.body.email,
-        subject: 'VIP Booking Confirmation – ELYSIUM',
-        html: `<h2>Dear ${req.body.name}</h2>
-               <p>Your VIP appointment is confirmed:</p>
-               <ul>
-                 <li><b>Date:</b> ${req.body.date}</li>
-                 <li><b>Time:</b> ${req.body.time}</li>
-               </ul>`
-      });
-    } catch (err) {
-      console.error("VIP email send failed:", err.message);
-    }
+    await transporter.sendMail({
+      from: EMAIL_USER,
+      to: req.body.email,
+      subject: 'VIP Booking Confirmation – ELYSIUM',
+      html: `<h2>Dear ${req.body.name}</h2>
+             <p>Your VIP appointment is confirmed:</p>
+             <ul>
+               <li><b>Date:</b> ${req.body.date}</li>
+               <li><b>Time:</b> ${req.body.time}</li>
+             </ul>`
+    });
 
     res.json({ message: "VIP booking saved and email sent!" });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "VIP booking failed." });
   }
 });
 
-// ---------- Admin Dashboard ----------
+// ---------- ADMIN DASHBOARD ----------
 app.get('/admin', (req, res) => {
   const bookings = JSON.parse(fs.readFileSync(bookingsFile));
   const vipBookings = JSON.parse(fs.readFileSync(vipFile));
@@ -200,7 +192,7 @@ app.get('/admin', (req, res) => {
             <h2>VIP Bookings</h2><pre>${JSON.stringify(vipBookings, null, 2)}</pre>`);
 });
 
-// ---------- Reminders ----------
+// ---------- REMINDERS (Optional) ----------
 function checkReminders() {
   const bookings = JSON.parse(fs.readFileSync(bookingsFile));
   const now = new Date();
@@ -212,23 +204,16 @@ function checkReminders() {
         from: EMAIL_USER,
         to: b.email,
         subject: 'Reminder – Your ELYSIUM Appointment',
-        html: `<h2>Hello ${b.name}</h2>
-               <p>Your appointment at ELYSIUM is in ~3 hours.</p>`
+        html: `<h2>Hello ${b.name}</h2><p>Your appointment is in ~3 hours.</p>`
       }).then(() => console.log("Reminder sent")).catch(err => console.log(err.message));
     }
   });
 }
 cron.schedule('*/10 * * * *', checkReminders);
 
-// ---------- Global error handling ----------
-process.on('unhandledRejection', (reason, p) => {
-  console.error('Unhandled Rejection at Promise:', p, 'reason:', reason);
-});
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-});
+// ---------- ERROR HANDLING ----------
+process.on('unhandledRejection', (reason, p) => console.error('Unhandled Rejection at Promise:', p, 'reason:', reason));
+process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
 
-// ---------- Start Server ----------
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// ---------- START SERVER ----------
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
