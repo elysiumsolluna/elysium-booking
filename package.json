@@ -2,7 +2,7 @@
   "name": "elysiumwebsite",
   "version": "1.0.0",
   "description": "Elysium website project",
-  "main": "index.js",
+  "main": "server.js",
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
@@ -15,7 +15,6 @@
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "fs": "^0.0.1-security",
     "google-spreadsheet": "^3.3.0",
     "googleapis": "^171.4.0",
     "node-cron": "^4.2.1",
