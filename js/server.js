@@ -15,31 +15,25 @@ const EMAIL_USER = process.env.GMAIL_USER;
 const EMAIL_PASS = process.env.GMAIL_PASS;
 const SHEET_ID = process.env.SHEET_ID;
 
-// Reconstruct GOOGLE_CREDS from individual env vars
-const GOOGLE_CREDS = {
-  type: process.env.GOOGLE_TYPE,
-  project_id: process.env.GOOGLE_PROJECT_ID,
-  private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-  private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-  client_email: process.env.GOOGLE_CLIENT_EMAIL,
-  client_id: process.env.GOOGLE_CLIENT_ID,
-  auth_uri: process.env.GOOGLE_AUTH_URI,
-  token_uri: process.env.GOOGLE_TOKEN_URI,
-  auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_CERT_URL,
-  client_x509_cert_url: process.env.GOOGLE_CLIENT_CERT_URL
-};
-
-// Validate environment variables
-if (!GOOGLE_CREDS.private_key || !EMAIL_USER || !EMAIL_PASS || !SHEET_ID) {
-  console.error("Missing environment variables. Check GOOGLE_CREDS and email credentials.");
+// Load Google creds from a single environment variable
+let creds;
+try {
+  creds = JSON.parse(process.env.GOOGLE_CREDS);
+  creds.private_key = creds.private_key.replace(/\\n/g, '\n');
+} catch (err) {
+  console.error("Failed to parse GOOGLE_CREDS. Make sure the JSON is valid.", err);
   process.exit(1);
 }
 
-const creds = GOOGLE_CREDS;
+// Validate required env variables
+if (!creds.private_key || !EMAIL_USER || !EMAIL_PASS || !SHEET_ID) {
+  console.error("Missing required environment variables!");
+  process.exit(1);
+}
 
 const app = express();
 
-// Nodemailer
+// Nodemailer setup
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: { user: EMAIL_USER, pass: EMAIL_PASS },
@@ -50,11 +44,10 @@ app.use(express.static(path.join(__dirname, '..')));
 app.use(cors());
 app.use(bodyParser.json());
 
-// JSON backups
+// JSON backup files
 const bookingsFile = path.join(__dirname, 'bookings.json');
 const vipFile = path.join(__dirname, 'vipBookings.json');
 
-// Create JSON files if missing
 if (!fs.existsSync(bookingsFile)) fs.writeFileSync(bookingsFile, JSON.stringify([]));
 if (!fs.existsSync(vipFile)) fs.writeFileSync(vipFile, JSON.stringify([]));
 
@@ -66,34 +59,35 @@ async function saveToSheet(booking, isVIP = false) {
     await doc.loadInfo();
     const sheetTitle = isVIP ? 'VIP Bookings' : 'Regular Bookings';
     const sheet = doc.sheetsByTitle[sheetTitle];
-    if (!sheet) throw new Error(`Sheet "${sheetTitle}" not found!`);
+    if (!sheet) throw new Error(`Sheet "${sheetTitle}" not found`);
     await sheet.addRow(booking);
   } catch (err) {
     console.error("Failed to save to Google Sheet:", err);
   }
 }
 
-// ---------- API ----------
+// ---------- API Routes ----------
 
-// GET bookings
+// Get all regular bookings
 app.get('/bookings', (req, res) => {
   const bookings = JSON.parse(fs.readFileSync(bookingsFile));
   res.json(bookings);
 });
 
+// Get all VIP bookings
 app.get('/vipBookings', (req, res) => {
   const vipBookings = JSON.parse(fs.readFileSync(vipFile));
   res.json(vipBookings);
 });
 
-// POST regular booking
+// Create regular booking
 app.post('/book', async (req, res) => {
   try {
     const bookings = JSON.parse(fs.readFileSync(bookingsFile));
     const conflict = bookings.find(b =>
       b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time
     );
-    if (conflict) return res.status(400).json({ message: `Barber already booked.` });
+    if (conflict) return res.status(400).json({ message: 'Barber already booked.' });
 
     bookings.push(req.body);
     fs.writeFileSync(bookingsFile, JSON.stringify(bookings, null, 2));
@@ -126,21 +120,20 @@ app.post('/book', async (req, res) => {
     }
 
     res.json({ message: 'Booking saved and email sent!' });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Booking failed.' });
   }
 });
 
-// POST VIP booking
+// Create VIP booking
 app.post('/vip', async (req, res) => {
   try {
     const vipBookings = JSON.parse(fs.readFileSync(vipFile));
     const conflict = vipBookings.find(b =>
       b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time
     );
-    if (conflict) return res.status(400).json({ message: `Barber already booked.` });
+    if (conflict) return res.status(400).json({ message: 'Barber already booked.' });
 
     vipBookings.push(req.body);
     fs.writeFileSync(vipFile, JSON.stringify(vipBookings, null, 2));
@@ -169,7 +162,6 @@ app.post('/vip', async (req, res) => {
     }
 
     res.json({ message: 'VIP booking saved and email sent!' });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'VIP booking failed.' });
@@ -203,7 +195,6 @@ function checkReminders() {
     }
   });
 }
-
 cron.schedule('*/10 * * * *', checkReminders);
 
 // ---------- Global error handling ----------
