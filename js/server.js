@@ -10,18 +10,30 @@ const { GoogleSpreadsheet } = require('google-spreadsheet');
 const cron = require('node-cron');
 
 // ---------- CONFIG ----------
-
-const PORT = process.env.PORT || 3000; // Render dynamic port
-const GOOGLE_CREDS = process.env.GOOGLE_CREDS; // JSON string from Render env
-const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_PASS = process.env.EMAIL_PASS;
+const PORT = process.env.PORT || 3000;
+const EMAIL_USER = process.env.GMAIL_USER;
+const EMAIL_PASS = process.env.GMAIL_PASS;
 const SHEET_ID = process.env.SHEET_ID;
 
+// Reconstruct GOOGLE_CREDS from individual env vars
+const GOOGLE_CREDS = {
+  type: process.env.GOOGLE_TYPE,
+  project_id: process.env.GOOGLE_PROJECT_ID,
+  private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+  private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'), // important
+  client_email: process.env.GOOGLE_CLIENT_EMAIL,
+  client_id: process.env.GOOGLE_CLIENT_ID,
+  auth_uri: process.env.GOOGLE_AUTH_URI,
+  token_uri: process.env.GOOGLE_TOKEN_URI,
+  auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_CERT_URL,
+  client_x509_cert_url: process.env.GOOGLE_CLIENT_CERT_URL
+};
+
+// Validate environment variables
 if (!GOOGLE_CREDS || !EMAIL_USER || !EMAIL_PASS || !SHEET_ID) {
-  console.error("Missing environment variables. Set GOOGLE_CREDS, EMAIL_USER, EMAIL_PASS, and SHEET_ID.");
+  console.error("Missing environment variables. Check GOOGLE_CREDS reconstruction and email credentials.");
   process.exit(1);
 }
-
 const creds = JSON.parse(GOOGLE_CREDS);
 
 const app = express();
