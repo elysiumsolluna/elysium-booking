@@ -12,18 +12,20 @@ const cron = require('node-cron');
 
 // ---------- CONFIG ----------
 const PORT = process.env.PORT || 3000;
-const EMAIL_USER = process.env.GMAIL_USER; // Gmail address
-const EMAIL_PASS = process.env.GMAIL_PASS; // Gmail App Password
-const SHEET_ID = process.env.SHEET_ID; // Google Sheet ID
 
-// GOOGLE SERVICE ACCOUNT CREDS
+// Gmail for sending confirmation emails
+const EMAIL_USER = process.env.GMAIL_USER;
+const EMAIL_PASS = process.env.GMAIL_PASS;
+
+// Google Sheet
+const SHEET_ID = process.env.SHEET_ID;
+
+// Google Service Account
 const GOOGLE_CREDS = {
   type: process.env.GOOGLE_TYPE,
   project_id: process.env.GOOGLE_PROJECT_ID,
   private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-  private_key: process.env.GOOGLE_PRIVATE_KEY
-    ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    : null,
+  private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
   client_email: process.env.GOOGLE_CLIENT_EMAIL,
   client_id: process.env.GOOGLE_CLIENT_ID,
   auth_uri: process.env.GOOGLE_AUTH_URI,
@@ -35,13 +37,12 @@ const GOOGLE_CREDS = {
 // ---------- EXPRESS APP ----------
 const app = express();
 
-// ---------- CORS ----------
+// CORS for your frontend live URL
 app.use(cors({
-  origin: 'https://elysiumsolluna.onrender.com', // your frontend live URL
+  origin: 'https://elysiumsolluna.onrender.com'
 }));
-
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, '..'))); // serve static files
+app.use(express.static(path.join(__dirname, '..')));
 
 // ---------- EMAIL TRANSPORT ----------
 const transporter = nodemailer.createTransport({
@@ -67,9 +68,8 @@ async function saveToSheet(booking, isVIP = false) {
     const doc = new GoogleSpreadsheet(SHEET_ID);
     await doc.useServiceAccountAuth(GOOGLE_CREDS);
     await doc.loadInfo();
-    const sheetTitle = isVIP ? 'VIP Bookings' : 'Regular Bookings';
-    const sheet = doc.sheetsByTitle[sheetTitle];
-    if (!sheet) throw new Error(`Sheet "${sheetTitle}" not found`);
+    const sheet = doc.sheetsByTitle[isVIP ? 'VIP Bookings' : 'Regular Bookings'];
+    if (!sheet) throw new Error(`Sheet "${isVIP ? 'VIP Bookings' : 'Regular Bookings'}" not found`);
     await sheet.addRow(booking);
   } catch (err) {
     console.error("Google Sheet save failed:", err.message);
@@ -81,7 +81,7 @@ app.get('/test-email', async (req, res) => {
   try {
     await transporter.sendMail({
       from: EMAIL_USER,
-      to: EMAIL_USER, // send to yourself
+      to: EMAIL_USER,
       subject: 'Test Email from ELYSIUM',
       text: 'This is a test email to confirm SMTP is working!'
     });
@@ -94,24 +94,17 @@ app.get('/test-email', async (req, res) => {
 
 // ---------- API: GET BOOKINGS ----------
 app.get('/bookings', (req, res) => {
-  const bookings = JSON.parse(fs.readFileSync(bookingsFile));
-  res.json(bookings);
+  res.json(JSON.parse(fs.readFileSync(bookingsFile)));
 });
-
 app.get('/vipBookings', (req, res) => {
-  const vipBookings = JSON.parse(fs.readFileSync(vipFile));
-  res.json(vipBookings);
+  res.json(JSON.parse(fs.readFileSync(vipFile)));
 });
 
 // ---------- API: POST BOOKING ----------
 app.post('/book', async (req, res) => {
   try {
     const bookings = JSON.parse(fs.readFileSync(bookingsFile));
-
-    // check conflicts
-    const conflict = bookings.find(b =>
-      b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time
-    );
+    const conflict = bookings.find(b => b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time);
     if (conflict) return res.status(400).json({ message: "Barber already booked." });
 
     bookings.push(req.body);
@@ -152,10 +145,7 @@ app.post('/book', async (req, res) => {
 app.post('/vip', async (req, res) => {
   try {
     const vipBookings = JSON.parse(fs.readFileSync(vipFile));
-
-    const conflict = vipBookings.find(b =>
-      b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time
-    );
+    const conflict = vipBookings.find(b => b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time);
     if (conflict) return res.status(400).json({ message: "VIP slot already booked." });
 
     vipBookings.push(req.body);
@@ -197,7 +187,7 @@ app.get('/admin', (req, res) => {
             <h2>VIP Bookings</h2><pre>${JSON.stringify(vipBookings, null, 2)}</pre>`);
 });
 
-// ---------- REMINDERS (Optional) ----------
+// ---------- REMINDERS ----------
 function checkReminders() {
   const bookings = JSON.parse(fs.readFileSync(bookingsFile));
   const now = new Date();
@@ -217,7 +207,7 @@ function checkReminders() {
 cron.schedule('*/10 * * * *', checkReminders);
 
 // ---------- ERROR HANDLING ----------
-process.on('unhandledRejection', (reason, p) => console.error('Unhandled Rejection at Promise:', p, 'reason:', reason));
+process.on('unhandledRejection', (reason, p) => console.error('Unhandled Rejection:', reason, p));
 process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
 
 // ---------- START SERVER ----------
