@@ -1,67 +1,65 @@
-<script>
-const bookingForm = document.getElementById('bookingForm');
-const dateInput = document.getElementById('date');
-const timeInput = document.getElementById('time');
+const regularForm = document.getElementById('bookingForm');
+const vipForm = document.getElementById('vipForm'); // Make sure your VIP form has id="vipForm"
+const dateInputs = document.querySelectorAll('input[type="date"]');
+const timeInputs = document.querySelectorAll('input[type="time"]');
 
-// Set minimum date to today
+// Set minimum date to today for all date inputs
 const today = new Date().toISOString().split('T')[0];
-dateInput.setAttribute('min', today);
+dateInputs.forEach(input => input.setAttribute('min', today));
 
-const API_URL = "https://elysiumsolluna.onrender.com"; // <-- your backend URL
+function handleBookingSubmit(form, endpoint) {
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
 
-bookingForm.addEventListener('submit', function(e) {
-  e.preventDefault();
+    const dateInput = form.querySelector('input[type="date"]');
+    const timeInput = form.querySelector('input[type="time"]');
+    const selectedDate = new Date(dateInput.value);
+    const now = new Date();
+    const [hours, minutes] = timeInput.value.split(':');
+    const selectedDateTime = new Date(selectedDate);
+    selectedDateTime.setHours(hours, minutes);
 
-  // Validate date/time not in the past
-  const selectedDate = new Date(dateInput.value);
-  const now = new Date();
-  const selectedTimeParts = timeInput.value.split(':');
-  const selectedDateTime = new Date(selectedDate);
-  selectedDateTime.setHours(selectedTimeParts[0], selectedTimeParts[1]);
-
-  if (selectedDateTime < now) {
-    alert("You cannot book for past date or time.");
-    return;
-  }
-
-  // Validate all fields
-  if (!bookingForm.service.value || !bookingForm.barber.value || !bookingForm.name.value || !bookingForm.email.value) {
-    alert("Please fill all fields to book your appointment.");
-    return;
-  }
-
-  // Prepare booking data
-  const bookingData = {
-    name: bookingForm.name.value,
-    email: bookingForm.email.value,
-    service: bookingForm.service.value,
-    barber: bookingForm.barber.value,
-    date: bookingForm.date.value,
-    time: bookingForm.time.value
-  };
-
-  // Send to backend
-  fetch(`${API_URL}/book`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(bookingData)
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.message) {
-      document.getElementById('confirmationMessage').innerHTML = `
-        <p style="color:green; font-weight:bold; margin-top:20px;">
-          ${data.message}
-        </p>
-      `;
-      bookingForm.reset();
-    } else {
-      alert("Booking failed. Please try again.");
+    if (selectedDateTime < now) {
+      alert("You cannot book for past date or time.");
+      return;
     }
-  })
-  .catch(err => {
-    console.error(err);
-    alert("Error sending booking. Check console for details.");
+
+    // Validate all required fields
+    const requiredFields = Array.from(form.querySelectorAll('[name]')).filter(f => f.type !== 'submit');
+    for (let field of requiredFields) {
+      if (!field.value) {
+        alert("Please fill all fields to book your appointment.");
+        return;
+      }
+    }
+
+    // Collect form data
+    const data = {};
+    requiredFields.forEach(f => data[f.name] = f.value);
+
+    // Send to backend
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(response => {
+      const messageDiv = form.querySelector('.confirmationMessage') || form.querySelector('#confirmationMessage');
+      if (messageDiv) {
+        messageDiv.innerHTML = `<p style="color:green; font-weight:bold; margin-top:20px;">${response.message}</p>`;
+      } else {
+        alert(response.message);
+      }
+      form.reset();
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Failed to book appointment. Please try again.");
+    });
   });
-});
-</script>
+}
+
+// Attach handlers
+if (regularForm) handleBookingSubmit(regularForm, '/book');
+if (vipForm) handleBookingSubmit(vipForm, '/vip');
