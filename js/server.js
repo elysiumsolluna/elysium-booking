@@ -9,7 +9,7 @@ const cron = require('node-cron');
 const creds = JSON.parse(process.env.GOOGLE_CREDS);
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; // use Render's port if available
 
 // Google Sheet ID
 const SHEET_ID = '1Od160ft9-Q6X0bPmn-WScFZH1dZ5JzlI75k8PUhMDTk';
