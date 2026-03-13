@@ -45,14 +45,15 @@ app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '..')));
 
 // ---------- EMAIL TRANSPORT ----------
+// FIXED for Render
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
+  port: 587,        // use STARTTLS
+  secure: false,    // false = STARTTLS
   auth: { user: EMAIL_USER, pass: EMAIL_PASS },
   tls: { rejectUnauthorized: false },
   connectionTimeout: 10000,
-  family: 4 // force IPv4
+  family: 4         // force IPv4
 });
 
 // ---------- JSON BACKUP FILES ----------
