@@ -32,7 +32,7 @@
   <p>Cutting Edges, Day & Night</p>
 </section>
 
-<!-- SOL – Men Booking -->
+<!-- Booking Section -->
 <section class="booking-section">
   <div class="service-card sol">
     <h1>Sol - Men's Barbershop</h1>
@@ -40,7 +40,6 @@
   </div>
 
   <form id="bookingForm">
-    <!-- Service Selection -->
     <label for="service">Choose Service</label>
     <select id="service" required>
       <option value="">Select a service</option>
@@ -55,7 +54,6 @@
       <option value="student-hair-beard-color">Student Haircut + Beard Trim + Color - 10 500 HUF</option>
     </select>
 
-    <!-- Barber Selection -->
     <label for="barber">Choose Barber</label>
     <div class="barber-select-wrapper">
       <select id="barber" required>
@@ -72,14 +70,12 @@
       </div>
     </div>
 
-    <!-- Date and Time -->
     <label for="date">Select Date</label>
     <input type="date" id="date" required>
 
     <label for="time">Select Time</label>
     <select id="time" required></select>
 
-    <!-- Customer Info -->
     <label for="name">Your Name</label>
     <input type="text" id="name" placeholder="John Doe" required>
 
@@ -185,14 +181,13 @@ async function updateAvailableTimes() {
   const date = regularDate.value;
   const vipDateVal = vipDate.value;
 
-  // Fetch all bookings
+  // Fetch all bookings from live server
   const [regularRes, vipRes] = await Promise.all([
-    fetch('http://localhost:3000/bookings'),
-    fetch('http://localhost:3000/vipBookings')
+    fetch(`${window.location.origin}/bookings`),
+    fetch(`${window.location.origin}/vipBookings`)
   ]);
   const [regularBookings, vipBookings] = await Promise.all([regularRes.json(), vipRes.json()]);
 
-  // Helper: disable times in a select based on bookings
   function disableTimes(selectElem, bookingsArray, selectedBarber, selectedDate) {
     Array.from(selectElem.options).forEach(opt => opt.disabled = false);
     bookingsArray.forEach(b => {
@@ -203,9 +198,7 @@ async function updateAvailableTimes() {
     });
   }
 
-  // Regular booking times
   if(barber && date) disableTimes(regularTimeSelect, regularBookings.concat(vipBookings), barber, date);
-  // VIP booking times
   if(vipDateVal) disableTimes(vipTimeSelect, regularBookings.concat(vipBookings), null, vipDateVal);
 }
 
@@ -225,7 +218,11 @@ document.getElementById('bookingForm').addEventListener('submit', async e => {
     name: document.getElementById('name').value,
     email: document.getElementById('email').value
   };
-  const res = await fetch('http://localhost:3000/book', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+  const res = await fetch(`${window.location.origin}/book`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(data)
+  });
   const result = await res.json();
   alert(result.message);
   bookingForm.reset();
@@ -241,7 +238,11 @@ document.getElementById('vipForm').addEventListener('submit', async e => {
     date: vipDate.value,
     time: vipTimeSelect.value
   };
-  const res = await fetch('http://localhost:3000/vip', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+  const res = await fetch(`${window.location.origin}/vip`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(data)
+  });
   const result = await res.json();
   vipConfirmation.innerHTML = `<p>${result.message}</p>`;
   vipForm.reset();
