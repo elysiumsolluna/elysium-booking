@@ -90,40 +90,62 @@
 </div>
 
 <script>
+const BACKEND_URL = 'https://elysiumsolluna.onrender.com';
+const API_BASE = ['localhost', '127.0.0.1'].includes(window.location.hostname) || window.location.hostname.includes('onrender.com')
+  ? window.location.origin
+  : BACKEND_URL;
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 async function loadBookings() {
-  // Regular bookings
-  const regularRes = await fetch('http://localhost:3000/bookings');
-  const regularData = await regularRes.json();
   const regularTableBody = document.querySelector('#regularTable tbody');
-  regularTableBody.innerHTML = '';
+  const vipTableBody = document.querySelector('#vipTable tbody');
+
+  try {
+    // Regular bookings
+    const regularRes = await fetch(`${API_BASE}/bookings`);
+    const regularData = await regularRes.json();
+    regularTableBody.innerHTML = '';
   regularData.forEach(b => {
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td data-label="Name">${b.name}</td>
-      <td data-label="Email">${b.email}</td>
-      <td data-label="Service">${b.service}</td>
-      <td data-label="Barber">${b.barber}</td>
-      <td data-label="Date">${b.date}</td>
-      <td data-label="Time">${b.time}</td>
+      <td data-label="Name">${escapeHtml(b.name)}</td>
+      <td data-label="Email">${escapeHtml(b.email)}</td>
+      <td data-label="Service">${escapeHtml(b.service)}</td>
+      <td data-label="Barber">${escapeHtml(b.barber)}</td>
+      <td data-label="Date">${escapeHtml(b.date)}</td>
+      <td data-label="Time">${escapeHtml(b.time)}</td>
     `;
     regularTableBody.appendChild(row);
   });
 
-  // VIP bookings
-  const vipRes = await fetch('http://localhost:3000/vipBookings');
-  const vipData = await vipRes.json();
-  const vipTableBody = document.querySelector('#vipTable tbody');
-  vipTableBody.innerHTML = '';
+    // VIP bookings
+    const vipRes = await fetch(`${API_BASE}/vipBookings`);
+    const vipData = await vipRes.json();
+    vipTableBody.innerHTML = '';
   vipData.forEach(b => {
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td data-label="Name">${b.name}</td>
-      <td data-label="Email">${b.email}</td>
-      <td data-label="Date">${b.date}</td>
-      <td data-label="Time">${b.time}</td>
+      <td data-label="Name">${escapeHtml(b.name)}</td>
+      <td data-label="Email">${escapeHtml(b.email)}</td>
+      <td data-label="Date">${escapeHtml(b.date)}</td>
+      <td data-label="Time">${escapeHtml(b.time)}</td>
     `;
     vipTableBody.appendChild(row);
   });
+  } catch (error) {
+    const message = `Failed to load bookings from ${API_BASE}. ${error.message || ''}`.trim();
+    regularTableBody.innerHTML = `<tr><td colspan="6" style="color:#ffb3b3;">${message}</td></tr>`;
+    vipTableBody.innerHTML = `<tr><td colspan="4" style="color:#ffb3b3;">${message}</td></tr>`;
+    console.error('Admin bookings load failed:', error);
+  }
 }
 
 // Load bookings on page load
