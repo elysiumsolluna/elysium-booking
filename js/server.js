@@ -85,6 +85,7 @@ if (!useBrevo) {
   console.log('[Email] Brevo provider enabled.');
 }
 
+
 function normalizeRecipients(to) {
   const recipients = Array.isArray(to) ? to : [to];
   return recipients.map((email) => String(email || '').trim()).filter(Boolean);
@@ -141,6 +142,7 @@ const vipFile = path.join(__dirname, 'vipBookings.json');
 if (!fs.existsSync(bookingsFile)) fs.writeFileSync(bookingsFile, JSON.stringify([]));
 if (!fs.existsSync(vipFile)) fs.writeFileSync(vipFile, JSON.stringify([]));
 
+
 function readBookingsArray(filePath, label) {
   try {
     const raw = fs.readFileSync(filePath, 'utf8').trim();
@@ -167,6 +169,49 @@ async function saveToSheet(booking, isVIP = false) {
     await sheet.addRow(booking);
   } catch (err) {
     console.error("Google Sheet save failed:", err.message);
+  }
+}
+
+function matchesSheetRow(rowValue, bookingValue) {
+  return String(rowValue ?? '').trim() === String(bookingValue ?? '').trim();
+}
+
+async function deleteFromSheet(booking, isVIP = false) {
+  try {
+    const doc = new GoogleSpreadsheet(SHEET_ID);
+    await doc.useServiceAccountAuth(GOOGLE_CREDS);
+    await doc.loadInfo();
+    const sheet = doc.sheetsByTitle[isVIP ? 'VIP Bookings' : 'Regular Bookings'];
+    if (!sheet) throw new Error(`Sheet "${isVIP ? 'VIP Bookings' : 'Regular Bookings'}" not found`);
+
+    const rows = await sheet.getRows();
+    const matchedRow = rows.find((row) => {
+      if (isVIP) {
+        return (
+          matchesSheetRow(row.Name, booking.name) &&
+          matchesSheetRow(row.Email, booking.email) &&
+          matchesSheetRow(row.Date, booking.date) &&
+          matchesSheetRow(row.Time, booking.time)
+        );
+      }
+
+      return (
+        matchesSheetRow(row.Name, booking.name) &&
+        matchesSheetRow(row.Email, booking.email) &&
+        matchesSheetRow(row.Service, booking.service) &&
+        matchesSheetRow(row.Barber, booking.barber) &&
+        matchesSheetRow(row.Date, booking.date) &&
+        matchesSheetRow(row.Time, booking.time)
+      );
+    });
+
+    if (!matchedRow) return { deleted: false, reason: 'Matching row was not found in Google Sheet' };
+
+    await matchedRow.delete();
+    return { deleted: true };
+  } catch (err) {
+    console.error('Google Sheet delete failed:', err.message);
+    return { deleted: false, reason: err.message };
   }
 }
 
@@ -282,7 +327,7 @@ app.post('/vip', async (req, res) => {
 });
 
 // ---------- API: DELETE BOOKINGS ----------
-app.post('/deleteBooking', (req, res) => {
+app.post('/deleteBooking', async (req, res) => {
   try {
     const { name, email, service, barber, date, time } = req.body || {};
     const bookings = readBookingsArray(bookingsFile, 'bookings.json');
@@ -301,14 +346,38 @@ app.post('/deleteBooking', (req, res) => {
     }
 
     fs.writeFileSync(bookingsFile, JSON.stringify(filtered, null, 2));
-    return res.json({ message: 'Booking deleted.' });
+
+    const [sheetResult, emailResult] = await Promise.all([
+      deleteFromSheet(req.body, false),
+      sendEmail({
+        from: MAIL_FROM,
+        to: email,
+        subject: 'Booking Cancellation – ELYSIUM',
+        html: `<h2>Dear ${name}</h2>
+               <p>Your booking has been cancelled:</p>
+               <ul>
+                 <li><b>Service:</b> ${service}</li>
+                 <li><b>Barber:</b> ${barber}</li>
+                 <li><b>Date:</b> ${date}</li>
+                 <li><b>Time:</b> ${time}</li>
+               </ul>`
+      })
+    ]);
+
+    return res.json({
+      message: 'Booking deleted.',
+      sheetDeleted: sheetResult.deleted,
+      sheetReason: sheetResult.deleted ? undefined : sheetResult.reason,
+      cancellationEmailSent: emailResult.sent,
+      cancellationEmailReason: emailResult.sent ? undefined : emailResult.reason
+    });
   } catch (err) {
     console.error('Delete booking failed:', err);
     return res.status(500).json({ message: 'Delete booking failed.' });
   }
 });
 
-app.post('/deleteVIP', (req, res) => {
+app.post('/deleteVIP', async (req, res) => {
   try {
     const { name, email, date, time } = req.body || {};
     const vipBookings = readBookingsArray(vipFile, 'vipBookings.json');
@@ -325,7 +394,29 @@ app.post('/deleteVIP', (req, res) => {
     }
 
     fs.writeFileSync(vipFile, JSON.stringify(filtered, null, 2));
-    return res.json({ message: 'VIP booking deleted.' });
+
+    const [sheetResult, emailResult] = await Promise.all([
+      deleteFromSheet(req.body, true),
+      sendEmail({
+        from: MAIL_FROM,
+        to: email,
+        subject: 'VIP Booking Cancellation – ELYSIUM',
+        html: `<h2>Dear ${name}</h2>
+               <p>Your VIP booking has been cancelled:</p>
+               <ul>
+                 <li><b>Date:</b> ${date}</li>
+                 <li><b>Time:</b> ${time}</li>
+               </ul>`
+      })
+    ]);
+
+    return res.json({
+      message: 'VIP booking deleted.',
+      sheetDeleted: sheetResult.deleted,
+      sheetReason: sheetResult.deleted ? undefined : sheetResult.reason,
+      cancellationEmailSent: emailResult.sent,
+      cancellationEmailReason: emailResult.sent ? undefined : emailResult.reason
+    });
   } catch (err) {
     console.error('Delete VIP booking failed:', err);
     return res.status(500).json({ message: 'Delete VIP booking failed.' });
