@@ -77,12 +77,14 @@ const emailConfigured = Boolean(EMAIL_USER && EMAIL_PASS);
 const transporter = emailConfigured
   ? nodemailer.createTransport({
       host: 'smtp.gmail.com',
-      port: 587,        // use STARTTLS
-      secure: false,    // false = STARTTLS
+      port: 587,
+      secure: false,
       auth: { user: EMAIL_USER, pass: EMAIL_PASS },
       tls: { rejectUnauthorized: false },
-      connectionTimeout: 10000,
-      family: 4         // force IPv4
+      connectionTimeout: 30000,
+      greetingTimeout: 30000,
+      socketTimeout: 30000,
+      family: 4
     })
   : null;
 
