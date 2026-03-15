@@ -32,16 +32,17 @@ loadLocalEnvFile();
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const cron = require('node-cron');
 
 // ---------- CONFIG ----------
 const PORT = process.env.PORT || 3000;
 
-// Gmail for sending confirmation emails
-const EMAIL_USER = process.env.GMAIL_USER;
-const EMAIL_PASS = process.env.GMAIL_PASS;
+// Brevo for sending confirmation emails
+const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'brevo';
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const MAIL_FROM = process.env.MAIL_FROM;
+const TEST_EMAIL_TO = process.env.TEST_EMAIL_TO;
 
 // Google Sheet
 const SHEET_ID = process.env.SHEET_ID;
@@ -71,39 +72,46 @@ app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '..')));
 
 // ---------- EMAIL TRANSPORT ----------
-// FIXED for Render
-const emailConfigured = Boolean(EMAIL_USER && EMAIL_PASS);
+const provider = EMAIL_PROVIDER.toLowerCase();
+const useBrevo = provider === 'brevo';
+const brevoConfigured = Boolean(BREVO_API_KEY && MAIL_FROM);
 
-const transporter = emailConfigured
-  ? nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: { user: EMAIL_USER, pass: EMAIL_PASS },
-      tls: { rejectUnauthorized: false },
-      connectionTimeout: 30000,
-      greetingTimeout: 30000,
-      socketTimeout: 30000,
-      family: 4
-    })
-  : null;
-
-if (!emailConfigured) {
-  console.warn('[Email] GMAIL_USER or GMAIL_PASS is missing. Booking confirmations are disabled.');
+if (!useBrevo) {
+  console.warn(`[Email] Unsupported EMAIL_PROVIDER="${EMAIL_PROVIDER}". Only "brevo" is supported.`);
+} else if (!brevoConfigured) {
+  console.warn('[Email] EMAIL_PROVIDER=brevo but BREVO_API_KEY/MAIL_FROM missing.');
 } else {
-  transporter.verify()
-    .then(() => console.log('[Email] SMTP connection is ready.'))
-    .catch((err) => console.error('[Email] SMTP verification failed:', err.message));
+  console.log('[Email] Brevo provider enabled.');
 }
 
 async function sendEmail(mailOptions) {
-  if (!transporter) return { sent: false, reason: 'Email credentials are missing' };
+  if (!useBrevo) return { sent: false, reason: 'Unsupported provider. Set EMAIL_PROVIDER=brevo' };
+  if (!brevoConfigured) return { sent: false, reason: 'Brevo credentials are missing' };
 
   try {
-    await transporter.sendMail(mailOptions);
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': BREVO_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: { email: MAIL_FROM },
+        to: (Array.isArray(mailOptions.to) ? mailOptions.to : [mailOptions.to]).map((email) => ({ email })),
+        subject: mailOptions.subject,
+        htmlContent: mailOptions.html,
+        textContent: mailOptions.text
+      })
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      return { sent: false, reason: `Brevo failed (${response.status}): ${body}` };
+    }
+
     return { sent: true };
   } catch (err) {
-    console.error('[Email] send failed:', err.message);
+    console.error('[Email] Brevo send failed:', err.message);
     return { sent: false, reason: err.message };
   }
 }
@@ -132,8 +140,8 @@ async function saveToSheet(booking, isVIP = false) {
 // ---------- TEST EMAIL ----------
 app.get('/test-email', async (req, res) => {
   const result = await sendEmail({
-    from: EMAIL_USER,
-    to: EMAIL_USER,
+    from: MAIL_FROM,
+    to: TEST_EMAIL_TO,
     subject: 'Test Email from ELYSIUM',
     text: 'This is a test email to confirm SMTP is working!'
   });
@@ -170,7 +178,7 @@ app.post('/book', async (req, res) => {
     });
 
     const emailResult = await sendEmail({
-      from: EMAIL_USER,
+      from: MAIL_FROM,
       to: req.body.email,
       subject: 'Booking Confirmation – ELYSIUM',
       html: `<h2>Dear ${req.body.name}</h2>
@@ -215,7 +223,7 @@ app.post('/vip', async (req, res) => {
     }, true);
 
     const emailResult = await sendEmail({
-      from: EMAIL_USER,
+      from: MAIL_FROM,
       to: req.body.email,
       subject: 'VIP Booking Confirmation – ELYSIUM',
       html: `<h2>Dear ${req.body.name}</h2>
@@ -258,7 +266,7 @@ function checkReminders() {
     const diff = (appointment - now) / (1000 * 60 * 60);
     if (diff > 2.9 && diff < 3.1) {
       sendEmail({
-        from: EMAIL_USER,
+        from: MAIL_FROM,
         to: b.email,
         subject: 'Reminder – Your ELYSIUM Appointment',
         html: `<h2>Hello ${b.name}</h2><p>Your appointment is in ~3 hours.</p>`
