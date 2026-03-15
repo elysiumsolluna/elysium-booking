@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELYSIUM Admin Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  /* Base styles */
+  body { font-family: 'Arial', sans-serif; background: #1a1a1a; color: #fff; margin:0; padding:0; }
+  header { background: #c0945b; padding: 20px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+  header h1 { margin:0; font-size:2rem; color: #fff; letter-spacing: 1px; }
+
+  .container { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
+  h2 { color: #c0945b; margin-bottom: 10px; font-weight: 500; }
+
+  .filter { margin-bottom: 15px; }
+  .filter input { width: 100%; padding: 10px 12px; border-radius: 5px; border: none; outline: none; font-size: 1rem; }
+
+  table { width: 100%; border-collapse: collapse; margin-bottom: 40px; background: #2b2b2b; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+  th, td { padding: 15px; text-align: left; border-bottom: 1px solid #444; }
+  th { background: #c0945b; color: #fff; text-transform: uppercase; letter-spacing: 0.05em; }
+  tr:hover { background: #3a3a3a; }
+  td { color: #eee; }
+
+  /* VIP table styling */
+  .vip-table th, .vip-table td { background: #372c1c; }
+  .vip-table tr:hover { background: #4a3a26; }
+
+  @media (max-width: 768px) {
+    table, thead, tbody, th, td, tr { display: block; }
+    th { display: none; }
+    td { padding: 10px; border: none; position: relative; }
+    td::before { 
+      content: attr(data-label);
+      font-weight: bold;
+      display: block;
+      margin-bottom: 5px;
+      color: #c0945b;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ELYSIUM Admin Dashboard</h1>
+</header>
+
+<div class="container">
+  <!-- Regular Bookings -->
+  <section class="regular-bookings">
+    <h2>Regular Bookings</h2>
+    <div class="filter">
+      <input type="text" id="regularFilter" placeholder="Search by name, barber, or service...">
+    </div>
+    <table id="regularTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Service</th>
+          <th>Barber</th>
+          <th>Date</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- VIP Bookings -->
+  <section class="vip-bookings">
+    <h2>VIP Bookings</h2>
+    <div class="filter">
+      <input type="text" id="vipFilter" placeholder="Search by name or date...">
+    </div>
+    <table id="vipTable" class="vip-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Date</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</div>
+
+<script>
+async function loadBookings() {
+  // Regular bookings
+  const regularRes = await fetch('http://localhost:3000/bookings');
+  const regularData = await regularRes.json();
+  const regularTableBody = document.querySelector('#regularTable tbody');
+  regularTableBody.innerHTML = '';
+  regularData.forEach(b => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td data-label="Name">${b.name}</td>
+      <td data-label="Email">${b.email}</td>
+      <td data-label="Service">${b.service}</td>
+      <td data-label="Barber">${b.barber}</td>
+      <td data-label="Date">${b.date}</td>
+      <td data-label="Time">${b.time}</td>
+    `;
+    regularTableBody.appendChild(row);
+  });
+
+  // VIP bookings
+  const vipRes = await fetch('http://localhost:3000/vipBookings');
+  const vipData = await vipRes.json();
+  const vipTableBody = document.querySelector('#vipTable tbody');
+  vipTableBody.innerHTML = '';
+  vipData.forEach(b => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td data-label="Name">${b.name}</td>
+      <td data-label="Email">${b.email}</td>
+      <td data-label="Date">${b.date}</td>
+      <td data-label="Time">${b.time}</td>
+    `;
+    vipTableBody.appendChild(row);
+  });
+}
+
+// Load bookings on page load
+loadBookings();
+
+// Table filter function
+function filterTable(inputId, tableId) {
+  const input = document.getElementById(inputId);
+  input.addEventListener('keyup', () => {
+    const filter = input.value.toLowerCase();
+    const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+    rows.forEach(row => {
+      row.style.display = Array.from(row.cells).some(cell => cell.textContent.toLowerCase().includes(filter)) ? '' : 'none';
+    });
+  });
+}
+
+// Apply filters
+filterTable('regularFilter', 'regularTable');
+filterTable('vipFilter', 'vipTable');
+</script>
+
+</body>
+</html>

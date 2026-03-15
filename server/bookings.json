@@ -1,0 +1,50 @@
+[
+  {
+    "service": "mens-haircut",
+    "barber": "marco",
+    "date": "2026-03-13",
+    "time": "10:00",
+    "name": "Abdalrahim",
+    "email": "abboudabutoyour@gmail.com"
+  },
+  {
+    "service": "mens-haircut",
+    "barber": "marco",
+    "date": "2026-03-13",
+    "time": "18:00",
+    "name": "Abdalrahim",
+    "email": "abboudabutoyour@gmail.com"
+  },
+  {
+    "service": "mens-haircut",
+    "barber": "marco",
+    "date": "2026-03-13",
+    "time": "10:00",
+    "name": "fouad ",
+    "email": "abboudabutoyour@gmail.com"
+  },
+  {
+    "service": "kids-haircut",
+    "barber": "marco",
+    "date": "2026-03-14",
+    "time": "10:00",
+    "name": "Abdalrahim",
+    "email": "abboudabutoyour@gmail.com"
+  },
+  {
+    "service": "student-beard-trim",
+    "barber": "david",
+    "date": "2026-03-14",
+    "time": "10:00",
+    "name": "Abdalrahim",
+    "email": "abboudabutoyour@gmail.com"
+  },
+  {
+    "service": "student-haircut",
+    "barber": "david",
+    "date": "2026-03-14",
+    "time": "10:00",
+    "name": "Abdalrahim",
+    "email": "abboudabutoyour@gmail.com"
+  }
+]

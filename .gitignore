@@ -1,0 +1,18 @@
+# Node modules
+node_modules/
+
+# Logs
+*.log
+
+# Environment & secrets
+.env
+js/credentials.json
+
+# Backup or temporary files
+*.bak
+.env.*
+!/.env.example
+server/credentials.json
+server/credentials.json.*
+!server/credentials.json.example
+*.tmp
