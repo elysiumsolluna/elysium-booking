@@ -54,5 +54,21 @@
     "time": "10:00",
     "name": "abud",
     "email": "elysiumsolluna@gmail.com"
+  },
+  {
+    "name": "Test User",
+    "email": "YOUR_EMAIL_HERE",
+    "service": "mens-haircut",
+    "barber": "alex",
+    "date": "2026-03-20",
+    "time": "14:00"
+  },
+  {
+    "name": "Test User",
+    "email": "elysiumsolluna@gmail.com",
+    "service": "mens-haircut",
+    "barber": "alex",
+    "date": "2026-03-20",
+    "time": "15:00"
   }
 ]
