@@ -214,8 +214,28 @@ vipDate.addEventListener('change', updateAvailableTimes);
 updateAvailableTimes();
 
 // --- Submit Forms ---
-document.getElementById('bookingForm').addEventListener('submit', async e => {
+const bookingForm = document.getElementById('bookingForm');
+const vipForm = document.getElementById('vipForm');
+const vipConfirmation = document.getElementById('vipConfirmation');
+
+function showMessage(targetEl, message, color = 'green', showAlert = false) {
+  if (targetEl) {
+    targetEl.innerHTML = `<p style="color:${color}; font-weight:600; margin-top:10px;">${message}</p>`;
+  }
+  if (showAlert) alert(message);
+}
+
+async function parseJsonSafely(response) {
+  try {
+    return await response.json();
+  } catch {
+    return { message: 'Unexpected server response. Please try again.' };
+  }
+}
+
+bookingForm.addEventListener('submit', async e => {
   e.preventDefault();
+  const submitBtn = bookingForm.querySelector('button[type="submit"]');
   const data = {
     service: document.getElementById('service').value,
     barber: barberSelect.value,
@@ -226,24 +246,29 @@ document.getElementById('bookingForm').addEventListener('submit', async e => {
   };
 
   try {
-    bookingConfirmation.innerHTML = '<p style="color:#1e88e5; font-weight:600;">Submitting your booking, please wait...</p>';
+    submitBtn.disabled = true;
+    showMessage(bookingConfirmation, 'Submitting your booking, please wait...', '#1e88e5');
 
     const res = await fetch(`${API_BASE}/book`, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(data)
     });
-    const result = await res.json();
+
+    const result = await parseJsonSafely(res);
+    const fallback = 'We were unable to complete your booking. Please try again.';
 
     if (!res.ok) {
-      bookingConfirmation.innerHTML = `<p style="color:#c62828; font-weight:600;">${result.message || 'We were unable to complete your booking. Please try again.'}</p>`;
+      showMessage(bookingConfirmation, result.message || fallback, '#c62828', true);
       return;
     }
 
     if (res.status === 202) {
-      bookingConfirmation.innerHTML = `<p style="color:#b76e00; font-weight:600;">Thank you, ${data.name}. Your booking has been received successfully, but we could not send a confirmation email at this time. Please contact us at elysiumsolluna@gmail.com if needed.</p>`;
+      const partial = `Thank you, ${data.name}. Your booking has been saved successfully, but the confirmation email could not be sent right now. Please contact us at elysiumsolluna@gmail.com if needed.`;
+      showMessage(bookingConfirmation, partial, '#b76e00', true);
     } else {
-      bookingConfirmation.innerHTML = `<p style="color:green; font-weight:600;">Thank you, ${data.name}. Your appointment on ${data.date} at ${data.time} has been successfully booked. A confirmation email has been sent to ${data.email}.</p>`;
+      const success = `Thank you, ${data.name}. Your appointment on ${data.date} at ${data.time} has been successfully booked. A confirmation email has been sent to ${data.email}.`;
+      showMessage(bookingConfirmation, success, 'green', true);
     }
 
     bookingForm.reset();
@@ -251,12 +276,15 @@ document.getElementById('bookingForm').addEventListener('submit', async e => {
     updateAvailableTimes();
   } catch (err) {
     console.error(err);
-    bookingConfirmation.innerHTML = '<p style="color:#c62828; font-weight:600;">Unable to reach booking server. Please try again in a moment.</p>';
+    showMessage(bookingConfirmation, 'Unable to reach booking server. Please try again in a moment.', '#c62828', true);
+  } finally {
+    submitBtn.disabled = false;
   }
 });
 
-document.getElementById('vipForm').addEventListener('submit', async e => {
+vipForm.addEventListener('submit', async e => {
   e.preventDefault();
+  const submitBtn = vipForm.querySelector('button[type="submit"]');
   const data = {
     name: document.getElementById('vipName').value,
     email: document.getElementById('vipEmail').value,
@@ -265,31 +293,38 @@ document.getElementById('vipForm').addEventListener('submit', async e => {
   };
 
   try {
-    vipConfirmation.innerHTML = '<p style="color:#1e88e5; font-weight:600;">Submitting your VIP booking, please wait...</p>';
+    submitBtn.disabled = true;
+    showMessage(vipConfirmation, 'Submitting your VIP booking, please wait...', '#1e88e5');
 
     const res = await fetch(`${API_BASE}/vip`, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(data)
     });
-    const result = await res.json();
+
+    const result = await parseJsonSafely(res);
+    const fallback = 'We were unable to complete your VIP booking. Please try again.';
 
     if (!res.ok) {
-      vipConfirmation.innerHTML = `<p style="color:#c62828;">${result.message || 'We were unable to complete your VIP booking. Please try again.'}</p>`;
+      showMessage(vipConfirmation, result.message || fallback, '#c62828', true);
       return;
     }
 
     if (res.status === 202) {
-      vipConfirmation.innerHTML = `<p style="color:#b76e00; font-weight:600;">Thank you, ${data.name}. Your VIP booking is successful, but we could not send the confirmation email at this time. Please contact us at elysiumsolluna@gmail.com if needed.</p>`;
+      const partial = `Thank you, ${data.name}. Your VIP booking is successful, but we could not send the confirmation email right now. Please contact us at elysiumsolluna@gmail.com if needed.`;
+      showMessage(vipConfirmation, partial, '#b76e00', true);
     } else {
-      vipConfirmation.innerHTML = `<p style="color:green; font-weight:600;">Thank you, ${data.name}. Your VIP appointment on ${data.date} at ${data.time} has been successfully booked. A confirmation email has been sent to ${data.email}.</p>`;
+      const success = `Thank you, ${data.name}. Your VIP appointment on ${data.date} at ${data.time} has been successfully booked. A confirmation email has been sent to ${data.email}.`;
+      showMessage(vipConfirmation, success, 'green', true);
     }
 
     vipForm.reset();
     updateAvailableTimes();
   } catch (err) {
     console.error(err);
-    vipConfirmation.innerHTML = '<p style="color:#c62828; font-weight:600;">Unable to reach booking server. Please try again in a moment.</p>';
+    showMessage(vipConfirmation, 'Unable to reach booking server. Please try again in a moment.', '#c62828', true);
+  } finally {
+    submitBtn.disabled = false;
   }
 });
 
