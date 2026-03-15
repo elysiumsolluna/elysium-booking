@@ -27,6 +27,18 @@
   .vip-table th, .vip-table td { background: #372c1c; }
   .vip-table tr:hover { background: #4a3a26; }
 
+  .delete-btn {
+    background: #b42318;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .delete-btn:hover { background: #8f1c13; }
+
   @media (max-width: 768px) {
     table, thead, tbody, th, td, tr { display: block; }
     th { display: none; }
@@ -63,6 +75,7 @@
           <th>Barber</th>
           <th>Date</th>
           <th>Time</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -82,6 +95,7 @@
           <th>Email</th>
           <th>Date</th>
           <th>Time</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -122,6 +136,7 @@ async function loadBookings() {
       <td data-label="Barber">${escapeHtml(b.barber)}</td>
       <td data-label="Date">${escapeHtml(b.date)}</td>
       <td data-label="Time">${escapeHtml(b.time)}</td>
+      <td data-label="Action"><button class="delete-btn" data-type="regular" data-booking='${escapeHtml(JSON.stringify(b))}'>Delete</button></td>
     `;
     regularTableBody.appendChild(row);
   });
@@ -137,6 +152,7 @@ async function loadBookings() {
       <td data-label="Email">${escapeHtml(b.email)}</td>
       <td data-label="Date">${escapeHtml(b.date)}</td>
       <td data-label="Time">${escapeHtml(b.time)}</td>
+      <td data-label="Action"><button class="delete-btn" data-type="vip" data-booking='${escapeHtml(JSON.stringify(b))}'>Delete</button></td>
     `;
     vipTableBody.appendChild(row);
   });
@@ -150,6 +166,40 @@ async function loadBookings() {
 
 // Load bookings on page load
 loadBookings();
+
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('.delete-btn');
+  if (!button) return;
+
+  const bookingJson = button.getAttribute('data-booking');
+  const type = button.getAttribute('data-type');
+  if (!bookingJson || !type) return;
+
+  const booking = JSON.parse(bookingJson);
+  const confirmed = window.confirm('Delete this booking?');
+  if (!confirmed) return;
+
+  const endpoint = type === 'vip' ? '/deleteVIP' : '/deleteBooking';
+
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(booking)
+    });
+
+    const result = await response.json().catch(() => ({ message: 'Delete failed.' }));
+    if (!response.ok) {
+      alert(result.message || 'Delete failed.');
+      return;
+    }
+
+    await loadBookings();
+  } catch (error) {
+    console.error('Delete failed:', error);
+    alert('Delete failed. Please try again.');
+  }
+});
 
 // Table filter function
 function filterTable(inputId, tableId) {

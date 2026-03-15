@@ -42,7 +42,8 @@ const PORT = process.env.PORT || 3000;
 const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'brevo';
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const MAIL_FROM = process.env.MAIL_FROM;
-const TEST_EMAIL_TO = process.env.TEST_EMAIL_TO;
+const TEST_EMAIL_TO = process.env.TEST_EMAIL_TO || MAIL_FROM;
+const BREVO_TIMEOUT_MS = Number(process.env.BREVO_TIMEOUT_MS || 15000);
 
 // Google Sheet
 const SHEET_ID = process.env.SHEET_ID;
@@ -84,9 +85,20 @@ if (!useBrevo) {
   console.log('[Email] Brevo provider enabled.');
 }
 
+function normalizeRecipients(to) {
+  const recipients = Array.isArray(to) ? to : [to];
+  return recipients.map((email) => String(email || '').trim()).filter(Boolean);
+}
+
 async function sendEmail(mailOptions) {
   if (!useBrevo) return { sent: false, reason: 'Unsupported provider. Set EMAIL_PROVIDER=brevo' };
   if (!brevoConfigured) return { sent: false, reason: 'Brevo credentials are missing' };
+
+  const recipients = normalizeRecipients(mailOptions.to);
+  if (!recipients.length) return { sent: false, reason: 'No recipients defined.' };
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), BREVO_TIMEOUT_MS);
 
   try {
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -97,11 +109,12 @@ async function sendEmail(mailOptions) {
       },
       body: JSON.stringify({
         sender: { email: MAIL_FROM },
-        to: (Array.isArray(mailOptions.to) ? mailOptions.to : [mailOptions.to]).map((email) => ({ email })),
+        to: recipients.map((email) => ({ email })),
         subject: mailOptions.subject,
         htmlContent: mailOptions.html,
         textContent: mailOptions.text
-      })
+      }),
+      signal: controller.signal
     });
 
     if (!response.ok) {
@@ -111,8 +124,13 @@ async function sendEmail(mailOptions) {
 
     return { sent: true };
   } catch (err) {
+    if (err.name === 'AbortError') {
+      return { sent: false, reason: `Brevo request timed out after ${BREVO_TIMEOUT_MS}ms` };
+    }
     console.error('[Email] Brevo send failed:', err.message);
     return { sent: false, reason: err.message };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -122,6 +140,21 @@ const vipFile = path.join(__dirname, 'vipBookings.json');
 
 if (!fs.existsSync(bookingsFile)) fs.writeFileSync(bookingsFile, JSON.stringify([]));
 if (!fs.existsSync(vipFile)) fs.writeFileSync(vipFile, JSON.stringify([]));
+
+function readBookingsArray(filePath, label) {
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8').trim();
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error('Expected an array');
+    return parsed;
+  } catch (err) {
+    console.error(`[Data] Failed to read ${label}:`, err.message);
+    fs.writeFileSync(filePath, JSON.stringify([]));
+    return [];
+  }
+}
 
 // ---------- HELPER: GOOGLE SHEET ----------
 async function saveToSheet(booking, isVIP = false) {
@@ -152,16 +185,16 @@ app.get('/test-email', async (req, res) => {
 
 // ---------- API: GET BOOKINGS ----------
 app.get('/bookings', (req, res) => {
-  res.json(JSON.parse(fs.readFileSync(bookingsFile)));
+  res.json(readBookingsArray(bookingsFile, 'bookings.json'));
 });
 app.get('/vipBookings', (req, res) => {
-  res.json(JSON.parse(fs.readFileSync(vipFile)));
+  res.json(readBookingsArray(vipFile, 'vipBookings.json'));
 });
 
 // ---------- API: POST BOOKING ----------
 app.post('/book', async (req, res) => {
   try {
-    const bookings = JSON.parse(fs.readFileSync(bookingsFile));
+    const bookings = readBookingsArray(bookingsFile, 'bookings.json');
     const conflict = bookings.find(b => b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time);
     if (conflict) return res.status(400).json({ message: "Barber already booked." });
 
@@ -208,7 +241,7 @@ app.post('/book', async (req, res) => {
 // ---------- API: POST VIP BOOKING ----------
 app.post('/vip', async (req, res) => {
   try {
-    const vipBookings = JSON.parse(fs.readFileSync(vipFile));
+    const vipBookings = readBookingsArray(vipFile, 'vipBookings.json');
     const conflict = vipBookings.find(b => b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time);
     if (conflict) return res.status(400).json({ message: "VIP slot already booked." });
 
@@ -248,10 +281,61 @@ app.post('/vip', async (req, res) => {
   }
 });
 
+// ---------- API: DELETE BOOKINGS ----------
+app.post('/deleteBooking', (req, res) => {
+  try {
+    const { name, email, service, barber, date, time } = req.body || {};
+    const bookings = readBookingsArray(bookingsFile, 'bookings.json');
+
+    const filtered = bookings.filter((b) => !(
+      b.name === name &&
+      b.email === email &&
+      b.service === service &&
+      b.barber === barber &&
+      b.date === date &&
+      b.time === time
+    ));
+
+    if (filtered.length === bookings.length) {
+      return res.status(404).json({ message: 'Booking not found.' });
+    }
+
+    fs.writeFileSync(bookingsFile, JSON.stringify(filtered, null, 2));
+    return res.json({ message: 'Booking deleted.' });
+  } catch (err) {
+    console.error('Delete booking failed:', err);
+    return res.status(500).json({ message: 'Delete booking failed.' });
+  }
+});
+
+app.post('/deleteVIP', (req, res) => {
+  try {
+    const { name, email, date, time } = req.body || {};
+    const vipBookings = readBookingsArray(vipFile, 'vipBookings.json');
+
+    const filtered = vipBookings.filter((b) => !(
+      b.name === name &&
+      b.email === email &&
+      b.date === date &&
+      b.time === time
+    ));
+
+    if (filtered.length === vipBookings.length) {
+      return res.status(404).json({ message: 'VIP booking not found.' });
+    }
+
+    fs.writeFileSync(vipFile, JSON.stringify(filtered, null, 2));
+    return res.json({ message: 'VIP booking deleted.' });
+  } catch (err) {
+    console.error('Delete VIP booking failed:', err);
+    return res.status(500).json({ message: 'Delete VIP booking failed.' });
+  }
+});
+
 // ---------- ADMIN DASHBOARD ----------
 app.get('/admin', (req, res) => {
-  const bookings = JSON.parse(fs.readFileSync(bookingsFile));
-  const vipBookings = JSON.parse(fs.readFileSync(vipFile));
+  const bookings = readBookingsArray(bookingsFile, 'bookings.json');
+  const vipBookings = readBookingsArray(vipFile, 'vipBookings.json');
   res.send(`<h1>Admin Dashboard</h1>
             <h2>Bookings</h2><pre>${JSON.stringify(bookings, null, 2)}</pre>
             <h2>VIP Bookings</h2><pre>${JSON.stringify(vipBookings, null, 2)}</pre>`);
@@ -259,7 +343,7 @@ app.get('/admin', (req, res) => {
 
 // ---------- REMINDERS ----------
 function checkReminders() {
-  const bookings = JSON.parse(fs.readFileSync(bookingsFile));
+  const bookings = readBookingsArray(bookingsFile, 'bookings.json');
   const now = new Date();
   bookings.forEach(b => {
     const appointment = new Date(`${b.date}T${b.time}`);
