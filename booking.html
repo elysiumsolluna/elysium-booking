@@ -93,7 +93,7 @@ const todayStr = new Date().toISOString().split('T')[0];
 document.getElementById('date').setAttribute('min', todayStr);
 
 // Time slots
-function generateTimeSlots(selectId, startHour = 10, endHour = 22, intervalMinutes = 30) {
+function generateTimeSlots(selectId, startHour = 10, endHour = 22, intervalMinutes = 60)
   const select = document.getElementById(selectId);
   select.innerHTML = '';
   let hour = startHour;
