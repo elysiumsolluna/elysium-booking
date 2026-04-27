@@ -9,7 +9,6 @@
 </head>
 <body>
 
-<!-- Header -->
 <header class="site-header">
   <div class="logo">
     <a href="index.html"><img src="images/logo.png" alt="ELYSIUM Logo"></a>
@@ -26,13 +25,11 @@
   </nav>
 </header>
 
-<!-- Page Hero -->
 <section class="hero-small">
   <h1>Book Your Appointment</h1>
   <p>Cutting Edges, Day & Night</p>
 </section>
 
-<!-- Booking Section -->
 <section class="booking-section">
   <div class="service-card sol">
     <h1>Sol - Men's Barbershop</h1>
@@ -40,6 +37,7 @@
   </div>
 
   <form id="bookingForm">
+
     <label for="service">Choose Service</label>
     <select id="service" required>
       <option value="">Select a service</option>
@@ -58,13 +56,10 @@
     <div class="barber-select-wrapper">
       <select id="barber" required>
         <option value="">Select a barber</option>
-        <option value="alex">Alex</option>
-        <option value="marco">Marco</option>
-        <option value="david">David</option>
-        <option value="leo">Leo</option>
-        <option value="sophia">Sophia</option>
-        <option value="emma">Emma</option>
+        <option value="moe">Moe Habibi</option>
+        <option value="armani">Armani</option>
       </select>
+
       <div class="barber-photo">
         <img id="barberImage" src="images/default-barber.png" alt="Barber Photo">
       </div>
@@ -77,10 +72,10 @@
     <select id="time" required></select>
 
     <label for="name">Your Name</label>
-    <input type="text" id="name" placeholder="John Doe" required>
+    <input type="text" id="name" required>
 
     <label for="email">Your Email</label>
-    <input type="email" id="email" placeholder="example@email.com" required>
+    <input type="email" id="email" required>
 
     <button type="submit" class="cta-btn">Book Appointment</button>
   </form>
@@ -88,254 +83,100 @@
   <div id="confirmationMessage"></div>
 </section>
 
-<!-- VIP Section -->
-<section class="vip-section">
-  <h2>Elysium VIP Grooming</h2>
-  <p class="vip-intro">Experience ultimate luxury with our premium grooming package:</p>
-  <div class="vip-card">
-    <div class="vip-item"><i class="fa-solid fa-scissors vip-icon"></i> Haircut</div>
-    <div class="vip-item"><i class="fa-solid fa-beard vip-icon"></i> Beard Styling</div>
-    <div class="vip-item"><i class="fa-solid fa-paint-roller vip-icon"></i> Hair Coloring</div>
-    <div class="vip-item"><i class="fa-solid fa-magic-wand-sparkles vip-icon"></i> Threading</div>
-    <div class="vip-item"><i class="fa-solid fa-face-mask vip-icon"></i> Hair & Face Masks</div>
-    <div class="vip-item"><i class="fa-solid fa-droplet vip-icon"></i> Wax & Steam Facial Cleansing</div>
-    <div class="vip-item free-drink"><i class="fa-solid fa-cup-hot vip-icon"></i> Free Soft Drink</div>
-  </div>
-  <div class="vip-price">Regular Price: 14 990 HUF | Student Price: 13 490 HUF</div>
-  <button id="vipBookBtn" class="cta-btn">Book VIP</button>
-</section>
-
-<!-- VIP Modal -->
-<div id="vipModal" class="vip-modal" style="display:none;">
-  <div class="vip-modal-content">
-    <span class="vip-close">&times;</span>
-    <h2>Book Elysium VIP Grooming</h2>
-    <form id="vipForm">
-      <label for="vipName">Your Name</label>
-      <input type="text" id="vipName" placeholder="John Doe" required>
-
-      <label for="vipEmail">Your Email</label>
-      <input type="email" id="vipEmail" placeholder="example@email.com" required>
-
-      <label for="vipDate">Select Date</label>
-      <input type="date" id="vipDate" required>
-
-      <label for="vipTime">Select Time</label>
-      <select id="vipTime" required></select>
-
-      <button type="submit" class="cta-btn">Book Now</button>
-    </form>
-    <div id="vipConfirmation"></div>
-  </div>
-</div>
-
 <footer>
   <p>&copy; 2026 ELYSIUM – Sol & Luna</p>
-  <p>Open Daily 10:00 AM — 10:00 PM</p>
 </footer>
 
 <script>
-// --- Setup ---
+// Dates
 const todayStr = new Date().toISOString().split('T')[0];
 document.getElementById('date').setAttribute('min', todayStr);
-document.getElementById('vipDate').setAttribute('min', todayStr);
 
+// Time slots
 function generateTimeSlots(selectId, startHour = 10, endHour = 22, intervalMinutes = 30) {
   const select = document.getElementById(selectId);
   select.innerHTML = '';
   let hour = startHour;
   let minute = 0;
+
   while(hour < endHour || (hour === endHour && minute === 0)) {
     const hh = hour.toString().padStart(2,'0');
     const mm = minute.toString().padStart(2,'0');
+
     const option = document.createElement('option');
     option.value = `${hh}:${mm}`;
     option.textContent = `${hh}:${mm}`;
     select.appendChild(option);
+
     minute += intervalMinutes;
-    if(minute>=60){minute=0; hour++;}
+    if(minute >= 60){
+      minute = 0;
+      hour++;
+    }
   }
 }
 
 generateTimeSlots('time');
-generateTimeSlots('vipTime');
 
-// Barber photo
+// Barber images
 const barberSelect = document.getElementById('barber');
 const barberImage = document.getElementById('barberImage');
-const barberPhotos = { alex:'images/barbers/alex.jpg', marco:'images/barbers/marco.jpg', david:'images/barbers/david.jpg', leo:'images/barbers/leo.jpg', sophia:'images/barbers/sophia.jpg', emma:'images/barbers/emma.jpg' };
+
+const barberPhotos = {
+  moe: 'images/barbers/moe.jpg',
+  armani: 'images/barbers/armani.jpg'
+};
+
 barberSelect.addEventListener('change', () => {
   const selected = barberSelect.value;
   barberImage.src = barberPhotos[selected] || 'images/default-barber.png';
-  barberImage.alt = selected ? `Photo of ${selected}` : 'Barber Photo';
 });
 
-// --- Disable already booked times ---
-const regularTimeSelect = document.getElementById('time');
-const vipTimeSelect = document.getElementById('vipTime');
-const regularDate = document.getElementById('date');
-const vipDate = document.getElementById('vipDate');
-const bookingConfirmation = document.getElementById('confirmationMessage');
-
+// Backend
 const BACKEND_URL = 'https://elysiumsolluna.onrender.com';
-const API_BASE = ['localhost', '127.0.0.1'].includes(window.location.hostname) || window.location.hostname.includes('onrender.com')
+const API_BASE = window.location.hostname.includes('onrender.com')
   ? window.location.origin
   : BACKEND_URL;
 
-async function updateAvailableTimes() {
-  const barber = barberSelect.value;
-  const date = regularDate.value;
-  const vipDateVal = vipDate.value;
-
-  // Fetch all bookings from live server
-  const [regularRes, vipRes] = await Promise.all([
-    fetch(`${API_BASE}/bookings`),
-    fetch(`${API_BASE}/vipBookings`)
-  ]);
-  const [regularBookings, vipBookings] = await Promise.all([regularRes.json(), vipRes.json()]);
-
-  function disableTimes(selectElem, bookingsArray, selectedBarber, selectedDate) {
-    Array.from(selectElem.options).forEach(opt => opt.disabled = false);
-    bookingsArray.forEach(b => {
-      if((b.barber === selectedBarber || !b.barber) && b.date === selectedDate) {
-        const option = Array.from(selectElem.options).find(o => o.value === b.time);
-        if(option) option.disabled = true;
-      }
-    });
-  }
-
-  if(barber && date) disableTimes(regularTimeSelect, regularBookings.concat(vipBookings), barber, date);
-  if(vipDateVal) disableTimes(vipTimeSelect, regularBookings.concat(vipBookings), null, vipDateVal);
-}
-
-barberSelect.addEventListener('change', updateAvailableTimes);
-regularDate.addEventListener('change', updateAvailableTimes);
-vipDate.addEventListener('change', updateAvailableTimes);
-updateAvailableTimes();
-
-// --- Submit Forms ---
+// Booking
 const bookingForm = document.getElementById('bookingForm');
-const vipForm = document.getElementById('vipForm');
-const vipConfirmation = document.getElementById('vipConfirmation');
-
-function showMessage(targetEl, message, color = 'green', showAlert = false) {
-  if (targetEl) {
-    targetEl.innerHTML = `<p style="color:${color}; font-weight:600; margin-top:10px;">${message}</p>`;
-  }
-  if (showAlert) alert(message);
-}
-
-async function parseJsonSafely(response) {
-  try {
-    return await response.json();
-  } catch {
-    return { message: 'Unexpected server response. Please try again.' };
-  }
-}
+const bookingConfirmation = document.getElementById('confirmationMessage');
 
 bookingForm.addEventListener('submit', async e => {
   e.preventDefault();
-  const submitBtn = bookingForm.querySelector('button[type="submit"]');
+
   const data = {
     service: document.getElementById('service').value,
     barber: barberSelect.value,
-    date: regularDate.value,
-    time: regularTimeSelect.value,
+    date: document.getElementById('date').value,
+    time: document.getElementById('time').value,
     name: document.getElementById('name').value,
     email: document.getElementById('email').value
   };
 
   try {
-    submitBtn.disabled = true;
-    showMessage(bookingConfirmation, 'Submitting your booking, please wait...', '#1e88e5');
-
     const res = await fetch(`${API_BASE}/book`, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(data)
     });
 
-    const result = await parseJsonSafely(res);
-    const fallback = 'We were unable to complete your booking. Please try again.';
+    const result = await res.json();
 
     if (!res.ok) {
-      showMessage(bookingConfirmation, result.message || fallback, '#c62828', true);
+      bookingConfirmation.innerHTML = `<p style="color:red">${result.message}</p>`;
       return;
     }
 
-    if (res.status === 202) {
-      const partial = `Thank you, ${data.name}. Your booking has been saved successfully, but the confirmation email could not be sent right now. Please contact us at elysiumsolluna@gmail.com if needed.`;
-      showMessage(bookingConfirmation, partial, '#b76e00', true);
-    } else {
-      const success = `Thank you, ${data.name}. Your appointment on ${data.date} at ${data.time} has been successfully booked. A confirmation email has been sent to ${data.email}.`;
-      showMessage(bookingConfirmation, success, 'green', true);
-    }
-
+    bookingConfirmation.innerHTML = `<p style="color:green">Booking confirmed!</p>`;
     bookingForm.reset();
     barberImage.src = 'images/default-barber.png';
-    updateAvailableTimes();
+
   } catch (err) {
-    console.error(err);
-    showMessage(bookingConfirmation, 'Unable to reach booking server. Please try again in a moment.', '#c62828', true);
-  } finally {
-    submitBtn.disabled = false;
+    bookingConfirmation.innerHTML = `<p style="color:red">Server error</p>`;
   }
 });
-
-vipForm.addEventListener('submit', async e => {
-  e.preventDefault();
-  const submitBtn = vipForm.querySelector('button[type="submit"]');
-  const data = {
-    name: document.getElementById('vipName').value,
-    email: document.getElementById('vipEmail').value,
-    date: vipDate.value,
-    time: vipTimeSelect.value
-  };
-
-  try {
-    submitBtn.disabled = true;
-    showMessage(vipConfirmation, 'Submitting your VIP booking, please wait...', '#1e88e5');
-
-    const res = await fetch(`${API_BASE}/vip`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(data)
-    });
-
-    const result = await parseJsonSafely(res);
-    const fallback = 'We were unable to complete your VIP booking. Please try again.';
-
-    if (!res.ok) {
-      showMessage(vipConfirmation, result.message || fallback, '#c62828', true);
-      return;
-    }
-
-    if (res.status === 202) {
-      const partial = `Thank you, ${data.name}. Your VIP booking is successful, but we could not send the confirmation email right now. Please contact us at elysiumsolluna@gmail.com if needed.`;
-      showMessage(vipConfirmation, partial, '#b76e00', true);
-    } else {
-      const success = `Thank you, ${data.name}. Your VIP appointment on ${data.date} at ${data.time} has been successfully booked. A confirmation email has been sent to ${data.email}.`;
-      showMessage(vipConfirmation, success, 'green', true);
-    }
-
-    vipForm.reset();
-    updateAvailableTimes();
-  } catch (err) {
-    console.error(err);
-    showMessage(vipConfirmation, 'Unable to reach booking server. Please try again in a moment.', '#c62828', true);
-  } finally {
-    submitBtn.disabled = false;
-  }
-});
-
-// VIP modal
-const vipBtn = document.getElementById('vipBookBtn');
-const vipModal = document.getElementById('vipModal');
-const vipClose = document.querySelector('.vip-close');
-vipBtn.addEventListener('click', () => vipModal.style.display='block');
-vipClose.addEventListener('click', () => vipModal.style.display='none');
-window.addEventListener('click', e=> {if(e.target===vipModal) vipModal.style.display='none';});
-
 </script>
+
 </body>
 </html>
