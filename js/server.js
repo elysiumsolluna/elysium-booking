@@ -66,7 +66,11 @@ const GOOGLE_CREDS = {
 const app = express();
 
 app.use(cors({
-  origin: 'https://elysiumsolluna.onrender.com'
+   origin: [
+    'https://www.elysiumbudapest.com',
+    'https://elysiumbudapest.com',
+    'https://elysiumsolluna.onrender.com'
+  ],
 }));
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '..')));
