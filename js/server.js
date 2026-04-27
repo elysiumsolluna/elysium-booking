@@ -65,14 +65,13 @@ const GOOGLE_CREDS = {
 // ---------- EXPRESS APP ----------
 const app = express();
 
-// CORS for your frontend live URL
 app.use(cors({
   origin: 'https://elysiumsolluna.onrender.com'
 }));
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '..')));
 
-// ---------- EMAIL TRANSPORT ----------
+// ---------- EMAIL ----------
 const provider = EMAIL_PROVIDER.toLowerCase();
 const useBrevo = provider === 'brevo';
 const brevoConfigured = Boolean(BREVO_API_KEY && MAIL_FROM);
@@ -84,7 +83,6 @@ if (!useBrevo) {
 } else {
   console.log('[Email] Brevo provider enabled.');
 }
-
 
 function normalizeRecipients(to) {
   const recipients = Array.isArray(to) ? to : [to];
@@ -142,7 +140,6 @@ const vipFile = path.join(__dirname, 'vipBookings.json');
 if (!fs.existsSync(bookingsFile)) fs.writeFileSync(bookingsFile, JSON.stringify([]));
 if (!fs.existsSync(vipFile)) fs.writeFileSync(vipFile, JSON.stringify([]));
 
-
 function readBookingsArray(filePath, label) {
   try {
     const raw = fs.readFileSync(filePath, 'utf8').trim();
@@ -158,17 +155,60 @@ function readBookingsArray(filePath, label) {
   }
 }
 
-// ---------- HELPER: GOOGLE SHEET ----------
+function writeBookingsArray(filePath, data) {
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+// ---------- GOOGLE SHEET HELPERS ----------
+async function getSheet(isVIP = false) {
+  const doc = new GoogleSpreadsheet(SHEET_ID);
+  await doc.useServiceAccountAuth(GOOGLE_CREDS);
+  await doc.loadInfo();
+  const sheet = doc.sheetsByTitle[isVIP ? 'VIP Bookings' : 'Regular Bookings'];
+  if (!sheet) throw new Error(`Sheet "${isVIP ? 'VIP Bookings' : 'Regular Bookings'}" not found`);
+  return sheet;
+}
+
+function normalizeRegularRow(row) {
+  return {
+    name: String(row.Name || '').trim(),
+    email: String(row.Email || '').trim(),
+    service: String(row.Service || '').trim(),
+    barber: String(row.Barber || '').trim(),
+    date: String(row.Date || '').trim(),
+    time: String(row.Time || '').trim()
+  };
+}
+
+function normalizeVipRow(row) {
+  return {
+    name: String(row.Name || '').trim(),
+    email: String(row.Email || '').trim(),
+    date: String(row.Date || '').trim(),
+    time: String(row.Time || '').trim()
+  };
+}
+
+async function syncFromSheet(isVIP = false) {
+  try {
+    const sheet = await getSheet(isVIP);
+    const rows = await sheet.getRows();
+    const normalized = rows.map((row) => (isVIP ? normalizeVipRow(row) : normalizeRegularRow(row)));
+
+    writeBookingsArray(isVIP ? vipFile : bookingsFile, normalized);
+    return normalized;
+  } catch (err) {
+    console.error(`[Data] Sheet sync failed (${isVIP ? 'VIP' : 'Regular'}):`, err.message);
+    return readBookingsArray(isVIP ? vipFile : bookingsFile, isVIP ? 'vipBookings.json' : 'bookings.json');
+  }
+}
+
 async function saveToSheet(booking, isVIP = false) {
   try {
-    const doc = new GoogleSpreadsheet(SHEET_ID);
-    await doc.useServiceAccountAuth(GOOGLE_CREDS);
-    await doc.loadInfo();
-    const sheet = doc.sheetsByTitle[isVIP ? 'VIP Bookings' : 'Regular Bookings'];
-    if (!sheet) throw new Error(`Sheet "${isVIP ? 'VIP Bookings' : 'Regular Bookings'}" not found`);
+    const sheet = await getSheet(isVIP);
     await sheet.addRow(booking);
   } catch (err) {
-    console.error("Google Sheet save failed:", err.message);
+    console.error('Google Sheet save failed:', err.message);
   }
 }
 
@@ -178,12 +218,7 @@ function matchesSheetRow(rowValue, bookingValue) {
 
 async function deleteFromSheet(booking, isVIP = false) {
   try {
-    const doc = new GoogleSpreadsheet(SHEET_ID);
-    await doc.useServiceAccountAuth(GOOGLE_CREDS);
-    await doc.loadInfo();
-    const sheet = doc.sheetsByTitle[isVIP ? 'VIP Bookings' : 'Regular Bookings'];
-    if (!sheet) throw new Error(`Sheet "${isVIP ? 'VIP Bookings' : 'Regular Bookings'}" not found`);
-
+    const sheet = await getSheet(isVIP);
     const rows = await sheet.getRows();
     const matchedRow = rows.find((row) => {
       if (isVIP) {
@@ -229,22 +264,25 @@ app.get('/test-email', async (req, res) => {
 });
 
 // ---------- API: GET BOOKINGS ----------
-app.get('/bookings', (req, res) => {
-  res.json(readBookingsArray(bookingsFile, 'bookings.json'));
+app.get('/bookings', async (req, res) => {
+  const data = await syncFromSheet(false);
+  res.json(data);
 });
-app.get('/vipBookings', (req, res) => {
-  res.json(readBookingsArray(vipFile, 'vipBookings.json'));
+
+app.get('/vipBookings', async (req, res) => {
+  const data = await syncFromSheet(true);
+  res.json(data);
 });
 
 // ---------- API: POST BOOKING ----------
 app.post('/book', async (req, res) => {
   try {
-    const bookings = readBookingsArray(bookingsFile, 'bookings.json');
-    const conflict = bookings.find(b => b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time);
-    if (conflict) return res.status(400).json({ message: "Barber already booked." });
+    const bookings = await syncFromSheet(false);
+    const conflict = bookings.find((b) => b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time);
+    if (conflict) return res.status(400).json({ message: 'Barber already booked.' });
 
     bookings.push(req.body);
-    fs.writeFileSync(bookingsFile, JSON.stringify(bookings, null, 2));
+    writeBookingsArray(bookingsFile, bookings);
 
     await saveToSheet({
       Name: req.body.name,
@@ -275,23 +313,22 @@ app.post('/book', async (req, res) => {
       });
     }
 
-    res.json({ message: 'Booking saved and email sent!' });
-
+    return res.json({ message: 'Booking saved and email sent!' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Booking failed." });
+    return res.status(500).json({ message: 'Booking failed.' });
   }
 });
 
 // ---------- API: POST VIP BOOKING ----------
 app.post('/vip', async (req, res) => {
   try {
-    const vipBookings = readBookingsArray(vipFile, 'vipBookings.json');
-    const conflict = vipBookings.find(b => b.barber === req.body.barber && b.date === req.body.date && b.time === req.body.time);
-    if (conflict) return res.status(400).json({ message: "VIP slot already booked." });
+    const vipBookings = await syncFromSheet(true);
+    const conflict = vipBookings.find((b) => b.date === req.body.date && b.time === req.body.time);
+    if (conflict) return res.status(400).json({ message: 'VIP slot already booked.' });
 
     vipBookings.push(req.body);
-    fs.writeFileSync(vipFile, JSON.stringify(vipBookings, null, 2));
+    writeBookingsArray(vipFile, vipBookings);
 
     await saveToSheet({
       Name: req.body.name,
@@ -318,11 +355,10 @@ app.post('/vip', async (req, res) => {
       });
     }
 
-    res.json({ message: 'VIP booking saved and email sent!' });
-
+    return res.json({ message: 'VIP booking saved and email sent!' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "VIP booking failed." });
+    return res.status(500).json({ message: 'VIP booking failed.' });
   }
 });
 
@@ -330,7 +366,7 @@ app.post('/vip', async (req, res) => {
 app.post('/deleteBooking', async (req, res) => {
   try {
     const { name, email, service, barber, date, time } = req.body || {};
-    const bookings = readBookingsArray(bookingsFile, 'bookings.json');
+    const bookings = await syncFromSheet(false);
 
     const filtered = bookings.filter((b) => !(
       b.name === name &&
@@ -345,7 +381,7 @@ app.post('/deleteBooking', async (req, res) => {
       return res.status(404).json({ message: 'Booking not found.' });
     }
 
-    fs.writeFileSync(bookingsFile, JSON.stringify(filtered, null, 2));
+    writeBookingsArray(bookingsFile, filtered);
 
     const [sheetResult, emailResult] = await Promise.all([
       deleteFromSheet(req.body, false),
@@ -364,6 +400,8 @@ app.post('/deleteBooking', async (req, res) => {
       })
     ]);
 
+    await syncFromSheet(false);
+
     return res.json({
       message: 'Booking deleted.',
       sheetDeleted: sheetResult.deleted,
@@ -380,7 +418,7 @@ app.post('/deleteBooking', async (req, res) => {
 app.post('/deleteVIP', async (req, res) => {
   try {
     const { name, email, date, time } = req.body || {};
-    const vipBookings = readBookingsArray(vipFile, 'vipBookings.json');
+    const vipBookings = await syncFromSheet(true);
 
     const filtered = vipBookings.filter((b) => !(
       b.name === name &&
@@ -393,7 +431,7 @@ app.post('/deleteVIP', async (req, res) => {
       return res.status(404).json({ message: 'VIP booking not found.' });
     }
 
-    fs.writeFileSync(vipFile, JSON.stringify(filtered, null, 2));
+    writeBookingsArray(vipFile, filtered);
 
     const [sheetResult, emailResult] = await Promise.all([
       deleteFromSheet(req.body, true),
@@ -410,6 +448,8 @@ app.post('/deleteVIP', async (req, res) => {
       })
     ]);
 
+    await syncFromSheet(true);
+
     return res.json({
       message: 'VIP booking deleted.',
       sheetDeleted: sheetResult.deleted,
@@ -424,9 +464,9 @@ app.post('/deleteVIP', async (req, res) => {
 });
 
 // ---------- ADMIN DASHBOARD ----------
-app.get('/admin', (req, res) => {
-  const bookings = readBookingsArray(bookingsFile, 'bookings.json');
-  const vipBookings = readBookingsArray(vipFile, 'vipBookings.json');
+app.get('/admin', async (req, res) => {
+  const bookings = await syncFromSheet(false);
+  const vipBookings = await syncFromSheet(true);
   res.send(`<h1>Admin Dashboard</h1>
             <h2>Bookings</h2><pre>${JSON.stringify(bookings, null, 2)}</pre>
             <h2>VIP Bookings</h2><pre>${JSON.stringify(vipBookings, null, 2)}</pre>`);
@@ -436,7 +476,7 @@ app.get('/admin', (req, res) => {
 function checkReminders() {
   const bookings = readBookingsArray(bookingsFile, 'bookings.json');
   const now = new Date();
-  bookings.forEach(b => {
+  bookings.forEach((b) => {
     const appointment = new Date(`${b.date}T${b.time}`);
     const diff = (appointment - now) / (1000 * 60 * 60);
     if (diff > 2.9 && diff < 3.1) {
