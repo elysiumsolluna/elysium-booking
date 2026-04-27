@@ -92,8 +92,8 @@
 const todayStr = new Date().toISOString().split('T')[0];
 document.getElementById('date').setAttribute('min', todayStr);
 
-// Time slots
-function generateTimeSlots(selectId, startHour = 10, endHour = 22, intervalMinutes = 60)
+// ✅ HOURLY Time slots
+function generateTimeSlots(selectId, startHour = 10, endHour = 22, intervalMinutes = 60) {
   const select = document.getElementById(selectId);
   select.innerHTML = '';
   let hour = startHour;
@@ -132,11 +132,8 @@ barberSelect.addEventListener('change', () => {
   barberImage.src = barberPhotos[selected] || 'images/default-barber.png';
 });
 
-// Backend
-const BACKEND_URL = 'https://elysiumsolluna.onrender.com';
-const API_BASE = window.location.hostname.includes('onrender.com')
-  ? window.location.origin
-  : BACKEND_URL;
+// ✅ FIXED backend URL
+const API_BASE = 'https://elysiumsolluna.onrender.com';
 
 // Booking
 const bookingForm = document.getElementById('bookingForm');
